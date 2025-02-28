@@ -35,7 +35,8 @@ export default function useGameLoop({
     if (!canvasRef.current) return;
     
     // Calculate delta time (capped to prevent large jumps if tab was inactive)
-    const deltaTime = Math.min(33, timestamp - lastFrameTimeRef.current);
+    // Using a fixed timestep of 16.67ms (60fps) for more stable physics
+    const deltaTime = 16.67;
     lastFrameTimeRef.current = timestamp;
     
     // Update game state

@@ -1,22 +1,22 @@
 // Game constants
 export const INITIAL_HEALTH = 100;
 export const HEALTH_GAIN = 5;
-export const DAMAGE_AMOUNT = 20;
+export const DAMAGE_AMOUNT = 15; // Reduced damage for better survivability
 
 // Character constants
 export const CHARACTER_SIZE = 24;
-export const CHARACTER_SPEED = 5;
-export const GRAVITY = 0.4;
-export const TERMINAL_VELOCITY = 10;
+export const CHARACTER_SPEED = 4; // Slower for more control
+export const GRAVITY = 0.3; // Reduced for less aggressive falling
+export const TERMINAL_VELOCITY = 9; // Slightly slower max falling speed
 export const CHARACTER_COLOR = '#FFD166';
 export const FACE_COLOR = '#E9ECEF';
 export const EYES_COLOR = '#212529';
 
 // Platform constants
 export const PLATFORM_HEIGHT = 10;
-export const MIN_PLATFORM_WIDTH = 60;
-export const MAX_PLATFORM_WIDTH = 150;
-export const PLATFORM_VERTICAL_GAP = 80;
+export const MIN_PLATFORM_WIDTH = 70; // Slightly wider for easier landing
+export const MAX_PLATFORM_WIDTH = 160; 
+export const PLATFORM_VERTICAL_GAP = 90; // Slightly increased for easier navigation
 export const PLATFORM_HORIZONTAL_SPACING = 100;
 export const CEILING_HEIGHT = 30;
 export const SPIKE_HEIGHT = 15;
