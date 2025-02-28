@@ -74,26 +74,26 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
     };
   }, [updateMovement]);
 
-  // Initialize canvas size when container size changes
+  // Ensure canvas is properly initialized
   useEffect(() => {
-    const resizeCanvas = () => {
-      if (containerRef.current && canvasRef.current) {
-        const { width, height } = containerRef.current.getBoundingClientRect();
-        canvasRef.current.width = width;
-        canvasRef.current.height = height;
-        console.log("Canvas resized to:", width, height);
+    const ensureCanvasIsReady = () => {
+      if (canvasRef.current) {
+        // Check if canvas dimensions are set
+        if (!canvasRef.current.width || !canvasRef.current.height) {
+          // Set dimensions to match the attributes we added
+          canvasRef.current.width = 273;
+          canvasRef.current.height = 492;
+        }
+        console.log("Canvas dimensions confirmed:", canvasRef.current.width, canvasRef.current.height);
       }
     };
 
-    // Initial resize
-    resizeCanvas();
+    // Initial setup
+    ensureCanvasIsReady();
     
-    // Listen for window resize
-    window.addEventListener('resize', resizeCanvas);
-
-    return () => {
-      window.removeEventListener('resize', resizeCanvas);
-    };
+    // We don't need to resize the canvas on window resize as it would affect gameplay
+    // The CSS will handle scaling the canvas visually
+    
   }, [canvasRef]);
 
   // Mobile control handlers
@@ -133,14 +133,19 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
       </div>
 
       {/* Debug info */}
-      <div className="absolute top-16 left-2 text-white text-xs z-10">
+      <div className="absolute top-16 left-2 text-white text-xs z-10 bg-black bg-opacity-50 p-1 rounded">
         <div>Controls: Arrow Keys</div>
         <div>Movement: {movingLeft.current ? 'LEFT ' : ''}{movingRight.current ? 'RIGHT' : ''}</div>
+        <div>Health: {health} | Score: {score}</div>
+        <div>Canvas: 273x492</div>
+        <div>Game Active: {gameActive ? 'YES' : 'NO'}</div>
       </div>
 
       {/* Canvas for the game */}
       <canvas 
         ref={canvasRef} 
+        width="273" 
+        height="492" 
         className="absolute top-0 left-0 w-full h-full"
       />
 

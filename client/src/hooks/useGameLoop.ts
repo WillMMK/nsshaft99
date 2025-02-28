@@ -44,12 +44,26 @@ export default function useGameLoop({
   
   // Initialize game engine and start game loop
   useEffect(() => {
+    // Only initialize if canvas is available and game is active
     if (!canvasRef.current || !gameActive) return;
+    
+    // Only initialize if we don't already have a game engine instance
+    if (gameEngineRef.current) {
+      console.log("Game engine already exists, not reinitializing");
+      return;
+    }
     
     console.log("Game loop initializing");
     console.log("Canvas reference:", canvasRef.current);
     
     try {
+      // Ensure canvas is fully initialized
+      if (!canvasRef.current.width || !canvasRef.current.height) {
+        canvasRef.current.width = 273;
+        canvasRef.current.height = 492;
+        console.log("Set canvas dimensions explicitly:", canvasRef.current.width, canvasRef.current.height);
+      }
+      
       // Initialize game engine with the canvas
       gameEngineRef.current = new GameEngine(
         canvasRef.current,
@@ -67,13 +81,23 @@ export default function useGameLoop({
       console.error("Error initializing game:", err);
     }
     
-    // Cleanup function
+    // Cleanup function - only runs when component unmounts or gameActive becomes false
     return () => {
       console.log("Cleaning up game loop");
       cancelAnimationFrame(animationFrameIdRef.current);
       gameEngineRef.current = null;
     };
   }, [canvasRef, gameActive, setHealth, setScore, onGameOver, gameLoop]);
+  
+  // Add another effect to handle game restarting
+  useEffect(() => {
+    // If game becomes inactive, we'll clean up for a potential restart
+    if (!gameActive && gameEngineRef.current) {
+      console.log("Game became inactive, cleaning up for potential restart");
+      cancelAnimationFrame(animationFrameIdRef.current);
+      gameEngineRef.current = null;
+    }
+  }, [gameActive]);
   
   return { updateMovement };
 }

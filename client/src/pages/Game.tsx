@@ -26,11 +26,11 @@ const Game = () => {
   const restartGame = () => {
     setGameActive(false);
     setGameOver(false);
-    // Wait a frame before starting a new game to make sure 
-    // everything is reset properly
+    // Wait longer before starting a new game to make sure 
+    // everything is properly cleaned up and reset
     setTimeout(() => {
       startGame();
-    }, 50);
+    }, 200); // Increased timeout to ensure cleanup completes
   };
   
   useEffect(() => {
