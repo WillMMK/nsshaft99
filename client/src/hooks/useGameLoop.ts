@@ -21,28 +21,24 @@ export default function useGameLoop({
   onGameOver
 }: UseGameLoopProps) {
   const gameEngineRef = useRef<GameEngine | null>(null);
-  const lastFrameTimeRef = useRef<number>(0);
   const animationFrameIdRef = useRef<number>(0);
   
+  // This function will be called from the key handlers
   const updateMovement = useCallback((isMovingLeft: boolean, isMovingRight: boolean) => {
     if (gameEngineRef.current) {
       gameEngineRef.current.updateMovement(isMovingLeft, isMovingRight);
     }
   }, []);
   
-  // Game loop
-  const gameLoop = useCallback((timestamp: number) => {
-    if (!canvasRef.current) return;
+  // Game loop with fixed time step for consistent physics
+  const gameLoop = useCallback(() => {
+    if (!canvasRef.current || !gameEngineRef.current) return;
     
-    // Calculate delta time (capped to prevent large jumps if tab was inactive)
-    // Using a fixed timestep of 16.67ms (60fps) for more stable physics
-    const deltaTime = 16.67;
-    lastFrameTimeRef.current = timestamp;
+    // Use a fixed time step for more stable physics
+    const FIXED_DELTA = 16.67; // ~60fps
     
-    // Update game state
-    if (gameEngineRef.current) {
-      gameEngineRef.current.update(deltaTime);
-    }
+    // Update game state with fixed timestep
+    gameEngineRef.current.update(FIXED_DELTA);
     
     // Continue the loop
     animationFrameIdRef.current = requestAnimationFrame(gameLoop);
@@ -52,6 +48,8 @@ export default function useGameLoop({
   useEffect(() => {
     if (!canvasRef.current || !gameActive) return;
     
+    console.log("Initializing game engine");
+    
     // Initialize game engine
     gameEngineRef.current = new GameEngine(
       canvasRef.current,
@@ -60,12 +58,19 @@ export default function useGameLoop({
       onGameOver
     );
     
-    // Start game loop
-    lastFrameTimeRef.current = performance.now();
+    // Immediately start game loop
     animationFrameIdRef.current = requestAnimationFrame(gameLoop);
+    
+    // Log initial state for debugging
+    console.log("Game initialized", {
+      canvasWidth: canvasRef.current.width,
+      canvasHeight: canvasRef.current.height,
+      gameEngine: gameEngineRef.current
+    });
     
     // Cleanup function
     return () => {
+      console.log("Cleaning up game engine");
       cancelAnimationFrame(animationFrameIdRef.current);
       gameEngineRef.current = null;
     };

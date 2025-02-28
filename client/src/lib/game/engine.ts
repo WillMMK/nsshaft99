@@ -184,52 +184,64 @@ export class GameEngine {
   
   // Update character position and apply physics
   updateCharacter(deltaTime: number) {
-    // We'll use a constant timestep for more predictable physics
-    const normalizedDelta = 1.0; // Fix to a constant value for stable physics
-    
-    // Handle horizontal movement - direct assignment rather than velocity-based
+    // Handle horizontal movement with direct x-position changes
+    // Apply a higher speed value for more noticeable movement
     if (this.isMovingLeft && !this.isMovingRight) {
-      this.character.x -= CHARACTER_SPEED;
+      // Apply larger movement per frame for visibility
+      this.character.x -= CHARACTER_SPEED * 2;
       this.character.facingDirection = -1;
+      console.log("Moving LEFT:", this.character.x);
     } else if (this.isMovingRight && !this.isMovingLeft) {
-      this.character.x += CHARACTER_SPEED;
+      // Apply larger movement per frame for visibility
+      this.character.x += CHARACTER_SPEED * 2;
       this.character.facingDirection = 1;
+      console.log("Moving RIGHT:", this.character.x);
     }
     
-    // Apply gravity with smoother acceleration 
-    this.character.velocityY += GRAVITY;
+    // Apply gravity with consistent acceleration
+    this.character.velocityY += GRAVITY * 2; // Double gravity for better feel
     
-    // Terminal velocity check
+    // Apply terminal velocity cap
     if (this.character.velocityY > TERMINAL_VELOCITY) {
       this.character.velocityY = TERMINAL_VELOCITY;
     }
     
-    // Update vertical position only 
+    // Update vertical position
     this.character.y += this.character.velocityY;
     
-    // Keep character within screen bounds
+    // Apply strict screen boundary checks
     if (this.character.x < 0) {
       this.character.x = 0;
     } else if (this.character.x + this.character.width > this.canvas.width) {
       this.character.x = this.canvas.width - this.character.width;
     }
     
-    // Handle conveyor belt effect with simplified movement
+    // Log character position for debugging
+    if (Math.random() < 0.01) { // Log only occasionally to avoid flooding
+      console.log(`Character at (${this.character.x.toFixed(0)}, ${this.character.y.toFixed(0)}), velocity: ${this.character.velocityY.toFixed(2)}`);
+    }
+    
+    // Handle conveyor belt effect with more pronounced movement
     if (this.lastPlatformLanded && this.lastPlatformLanded.type === PlatformType.CONVEYOR) {
       // Determine conveyor direction (based on platform ID to make it consistent)
       const conveyorDirection = this.lastPlatformLanded.id % 2 === 0 ? 1 : -1;
-      this.character.x += conveyorDirection * 1.0;
+      this.character.x += conveyorDirection * 2.0; // Double the effect
     }
   }
   
   // Update platforms (scrolling, removing, adding new ones)
   updatePlatforms(deltaTime: number) {
-    // Use a constant value for more predictable platform movement
-    const scrollAmount = this.scrollSpeed;
+    // Set a larger scroll amount for more noticeable movement
+    const scrollAmount = 5; // Force a constant value, ignore this.scrollSpeed for now
+    
+    // Log platform movement for debugging
+    if (Math.random() < 0.01) {
+      console.log(`Platforms: ${this.platforms.length}, Scroll amount: ${scrollAmount}`);
+    }
     
     // Move all platforms up (simulating player falling down)
     for (const platform of this.platforms) {
-      platform.y -= scrollAmount;
+      platform.y -= scrollAmount; // Move platforms upward with fixed speed
       
       // If platform has a timer (like collapsing platforms), update it
       if (platform.timer !== undefined) {
@@ -237,7 +249,7 @@ export class GameEngine {
       }
     }
     
-    // Track distance for scoring with consistent increments
+    // Track distance for scoring with fixed increments
     this.totalDistanceTraveled += scrollAmount;
     this.score = Math.floor(this.totalDistanceTraveled * SCORE_PER_DISTANCE);
     this.onUpdateScore(this.score);
@@ -246,13 +258,24 @@ export class GameEngine {
     this.platforms = this.platforms.filter(platform => platform.y + PLATFORM_HEIGHT > 0);
     
     // Add new platforms at the bottom as needed
-    const lowestPlatform = this.platforms.reduce(
-      (lowest, current) => current.y > lowest.y ? current : lowest, 
-      { y: 0 } as Platform
-    );
-    
-    if (lowestPlatform.y < this.canvas.height + 200) {
-      this.addPlatform(lowestPlatform.y + PLATFORM_VERTICAL_GAP);
+    if (this.platforms.length > 0) {
+      const lowestPlatform = this.platforms.reduce(
+        (lowest, current) => current.y > lowest.y ? current : lowest, 
+        this.platforms[0]
+      );
+      
+      // Ensure we keep adding platforms as the screen scrolls
+      if (lowestPlatform.y < this.canvas.height + 100) {
+        const newY = lowestPlatform.y + PLATFORM_VERTICAL_GAP;
+        this.addPlatform(newY);
+        
+        // Debug log when adding platform
+        console.log(`Added new platform at y=${newY}`);
+      }
+    } else {
+      // If we somehow lost all platforms, add one
+      this.addPlatform(this.canvas.height - 50);
+      console.log("No platforms found, adding emergency platform");
     }
   }
   
