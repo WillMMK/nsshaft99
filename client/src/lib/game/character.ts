@@ -1,4 +1,9 @@
-import { CHARACTER_COLOR, FACE_COLOR, EYES_COLOR } from './constants';
+import { 
+  CHARACTER_COLOR, 
+  FACE_COLOR, 
+  EYES_COLOR,
+  INVINCIBILITY_FLASH_RATE 
+} from './constants';
 
 export interface Character {
   x: number;
@@ -9,12 +14,29 @@ export interface Character {
   velocityX: number;
   isJumping: boolean;
   facingDirection: number; // 1 for right, -1 for left
+  invincibleUntil?: number; // Timestamp when invincibility ends
+  isInvincible?: boolean; // Flag to check invincibility state
 }
 
 export function drawCharacter(ctx: CanvasRenderingContext2D, character: Character) {
-  const { x, y, width, height, facingDirection } = character;
+  const { x, y, width, height, facingDirection, isInvincible } = character;
   
   ctx.save();
+  
+  // Handle invincibility visual effect (flashing)
+  if (isInvincible) {
+    // Create flashing effect by alternating opacity based on timestamp
+    const flashRate = INVINCIBILITY_FLASH_RATE;
+    const shouldFlash = Math.floor(Date.now() / flashRate) % 2 === 0;
+    
+    if (shouldFlash) {
+      ctx.globalAlpha = 0.5; // Half transparency for flash effect
+    }
+    
+    // Add a glow effect to show invincibility
+    ctx.shadowColor = '#FFFFFF';
+    ctx.shadowBlur = 10;
+  }
   
   // Draw the body (a circle)
   ctx.fillStyle = CHARACTER_COLOR;
@@ -53,6 +75,17 @@ export function drawCharacter(ctx: CanvasRenderingContext2D, character: Characte
     Math.PI * 2
   );
   ctx.fill();
+  
+  // Draw invincibility indicator if active
+  if (isInvincible) {
+    // Draw a halo effect around the character
+    ctx.strokeStyle = '#FFD166';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([5, 3]); // Dashed line for dynamic effect
+    ctx.beginPath();
+    ctx.arc(x + width / 2, y + height / 2, width / 2 + 5, 0, Math.PI * 2);
+    ctx.stroke();
+  }
   
   ctx.restore();
 }

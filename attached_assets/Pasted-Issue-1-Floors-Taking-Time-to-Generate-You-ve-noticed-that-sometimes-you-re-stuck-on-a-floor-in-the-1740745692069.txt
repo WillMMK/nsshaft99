@@ -1,0 +1,36 @@
+Issue 1: Floors Taking Time to Generate
+You’ve noticed that sometimes you’re stuck on a floor in the middle of the screen with no floor below, waiting for new platforms (or "floors") to appear. This delay can disrupt the flow of the game and possibly lead to falling into hazards like spikes.
+
+Why This Might Be Happening
+Based on the game’s setup, it initializes five platforms at the start, with your character beginning at coordinates (124.5, 222) and the starting platform at (86.5, 270). The game uses a canvas that’s 273 pixels wide and 492 pixels tall, and the platforms are likely generated as you move downward through the shaft. If the game doesn’t create new platforms fast enough or far enough ahead of your position, you can end up waiting—or worse, falling—because there’s nothing below you.
+
+Solutions
+To fix this, the game needs to ensure platforms are always available below you without noticeable delays. Here’s how that can be achieved:
+
+Generate Platforms Ahead of Time
+The game should create new platforms before you reach the bottom of the current set. For example, when your character’s y-position gets close to the lowest platform, new ones should spawn lower down. This could be adjusted in the game’s platform generation code to something like:
+Generate a new platform 100 pixels below your current y-position whenever you’re within a certain distance of the lowest platform.
+Increase Platform Generation Frequency
+The game could be set to maintain more platforms on the screen at once—say, 10 instead of 5—or generate them more often. This ensures there’s always a floor below you, reducing wait times.
+Optimize the Game Loop
+The game loop, which updates the game state, might be slowing down or resetting unnecessarily (as seen in logs with "Cleaning up game loop"). Making sure it runs smoothly and generates platforms consistently based on your position can prevent these gaps.
+What You’ll Experience After the Fix
+With these changes, you should see platforms appearing seamlessly as you descend, eliminating those moments where you’re stuck waiting for the next floor to load.
+
+Issue 2: Spikes Killing You Instantly
+The second issue is that touching spikes results in immediate death, which can feel frustrating, especially if it happens unexpectedly or too often—like when you fall due to missing platforms.
+
+Why This Might Be Happening
+The game’s "GAME OVER" screen advises "Avoid spikes, don’t fall too fast!!" indicating spikes are designed as lethal obstacles. When you hit one, the game likely ends your session instantly, possibly because the collision system marks spike contact as a game-over condition without any buffer or health system to soften the blow.
+
+Solutions
+To make this less punishing and more enjoyable, here are some ways to adjust the spike mechanics:
+
+Add a Health System
+Instead of instant death, spikes could deal a set amount of damage—say, 20 points—to a health pool (e.g., starting at 100). This way, you could survive a few spike hits before dying, giving you a chance to recover. The game already hints at a health mechanic with the tip "Land on platforms to gain health," so tying this in would make sense.
+Introduce a Grace Period
+After spawning or hitting a spike, you could have a short invincibility period (e.g., 1-2 seconds) where you’re immune to spike damage. This gives you time to move away and avoid repeated instant deaths.
+Fine-Tune Collision Detection
+If the spikes’ hitboxes (the area that triggers a collision) are too large or overly sensitive, adjusting them to be more precise could prevent unfair deaths. For instance, only the sharp tip of a spike should count as a hit, not the entire object.
+What You’ll Experience After the Fix
+With a health system or grace period, hitting a spike won’t end your game right away—you’ll have a chance to keep playing. Combined with better platform generation, you’ll also fall into spikes less often due to missing floors.

@@ -110,7 +110,8 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
   };
 
   return (
-    <div ref={containerRef} className="absolute inset-0">
+    <div ref={containerRef} className="relative w-full h-full">
+      {/* Game HUD - Score and Health */}
       <div className="absolute top-0 left-0 w-full p-2 flex justify-between items-center z-10 bg-black bg-opacity-70">
         <HealthBar health={health} />
         <div className="font-mono text-yellow-400 text-lg">
@@ -119,6 +120,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
         </div>
       </div>
 
+      {/* Debug info - can be removed in production */}
       <div className="absolute top-16 left-2 text-white text-xs z-10 bg-black bg-opacity-50 p-1 rounded">
         <div>Controls: Arrow Keys</div>
         <div>Movement: {movingLeft.current ? 'LEFT ' : ''}{movingRight.current ? 'RIGHT' : ''}</div>
@@ -127,13 +129,16 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
         <div>Game Active: {gameActive ? 'YES' : 'NO'}</div>
       </div>
 
+      {/* The game canvas - precisely sized and positioned */}
       <canvas 
         ref={canvasRef} 
         width="273" 
         height="492" 
-        className="absolute top-0 left-0 w-full h-full"
+        className="block w-full h-full object-contain"
+        style={{ imageRendering: 'pixelated' }} // For crisp pixel rendering
       />
 
+      {/* Mobile controls overlay */}
       <MobileControls 
         onMoveLeft={handleMoveLeft}
         onStopMoveLeft={handleStopMoveLeft}

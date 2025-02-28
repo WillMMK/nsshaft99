@@ -1,7 +1,9 @@
 // Game constants
 export const INITIAL_HEALTH = 100;
-export const HEALTH_GAIN = 5;
-export const DAMAGE_AMOUNT = 15; // Reduced damage for better survivability
+export const HEALTH_GAIN = 10; // Increased health gain for better balance
+export const DAMAGE_AMOUNT = 20; // Spike damage amount (balanced with invincibility)
+export const INVINCIBILITY_DURATION = 1500; // Invincibility period after taking damage (in milliseconds)
+export const INVINCIBILITY_FLASH_RATE = 200; // How quickly character flashes during invincibility
 
 // Character constants
 export const CHARACTER_SIZE = 24;

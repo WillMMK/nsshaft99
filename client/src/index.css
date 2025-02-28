@@ -41,12 +41,41 @@
   
   body {
     @apply font-sans antialiased bg-background text-foreground;
+    -webkit-tap-highlight-color: transparent; /* Remove tap highlight on mobile */
+  }
+  
+  /* Improve canvas rendering */
+  canvas {
+    image-rendering: -webkit-optimize-contrast;
+    image-rendering: crisp-edges;
+    image-rendering: pixelated;
+    touch-action: none; /* Prevent default touch actions for canvas */
+  }
+  
+  /* Prevent text selection on game controls */
+  .no-select {
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
   }
 }
 
 /* Game-specific styles */
 .game-dark {
   @apply bg-game-dark;
+}
+
+/* Game container styles */
+.game-container {
+  @apply relative overflow-hidden;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+/* Center positioning helper */
+.game-center {
+  @apply flex justify-center items-center;
+  transform: translate3d(0, 0, 0); /* Hardware acceleration */
 }
 
 /* Animation keyframes */

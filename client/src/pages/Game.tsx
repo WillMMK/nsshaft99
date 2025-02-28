@@ -41,12 +41,19 @@ const Game = () => {
   
   return (
     <div className="bg-game-dark text-game-light min-h-screen flex flex-col items-center justify-center p-4">
-      <div className="max-w-md w-full mx-auto">
+      <div className="w-full max-w-md mx-auto flex flex-col items-center">
         <h1 className="text-center text-game-yellow font-pixel text-2xl mb-4 animate-bobbing">NS-SHAFT</h1>
         
-        <div className="relative bg-game-dark border-4 border-game-blue rounded-lg overflow-hidden" 
-             style={{ height: '500px', maxHeight: '80vh', aspectRatio: '9/16' }}>
-          
+        {/* Canvas container with proper centering and aspect ratio */}
+        <div 
+          className="game-container game-center bg-game-dark border-4 border-game-blue rounded-lg no-select" 
+          style={{ 
+            width: '100%', 
+            maxWidth: '273px',  /* Match canvas width */
+            height: 'auto',
+            aspectRatio: '273/492' /* Exact canvas aspect ratio */
+          }}
+        >
           {gameActive && (
             <GameCanvas 
               canvasRef={canvasRef}

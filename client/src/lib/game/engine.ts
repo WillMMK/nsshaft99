@@ -63,7 +63,9 @@ export class GameEngine {
       velocityY: 0,
       velocityX: 0,
       isJumping: false,
-      facingDirection: 1
+      facingDirection: 1,
+      isInvincible: false,
+      invincibleUntil: 0
     };
 
     console.log("Character initialized at:", this.character.x, this.character.y);
@@ -92,18 +94,50 @@ export class GameEngine {
     // Generate additional platforms with appropriate spacing
     let yPos = startY + PLATFORM_VERTICAL_GAP;
     
-    // Make sure we generate enough platforms below the bottom of the screen
-    while (yPos < this.canvas.height + 300) {
-      this.addPlatform(yPos);
+    // Increase initial platform count to ensure more floors are available
+    // Generate platforms all the way to double the canvas height
+    while (yPos < this.canvas.height * 2) {
+      // Add more platforms at each level for better horizontal distribution
+      // This gives the player more landing options
+      const platformCount = Math.random() < 0.3 ? 2 : 1; // 30% chance of 2 platforms at same level
+      
+      for (let i = 0; i < platformCount; i++) {
+        // If adding a second platform, ensure it's positioned away from the first
+        let xOffset = 0;
+        if (i > 0 && this.platforms.length > 0) {
+          const lastPlatform = this.platforms[this.platforms.length - 1];
+          xOffset = lastPlatform.x > this.canvas.width / 2 ? 
+                    -this.canvas.width / 2 : // Place on left side
+                    this.canvas.width / 2;   // Place on right side
+        }
+        this.addPlatform(yPos, xOffset);
+      }
+      
       yPos += PLATFORM_VERTICAL_GAP;
     }
     console.log("Initialized", this.platforms.length, "platforms");
   }
 
-  addPlatform(yPos: number) {
+  addPlatform(yPos: number, xOffset: number = 0) {
     const width = MIN_PLATFORM_WIDTH + Math.random() * (MAX_PLATFORM_WIDTH - MIN_PLATFORM_WIDTH);
-    const xPos = Math.random() * (this.canvas.width - width);
+    
+    // Calculate x position with the offset, ensuring platforms stay on screen
+    let xPos = Math.random() * (this.canvas.width - width);
+    
+    if (xOffset !== 0) {
+      // Apply the offset, but make sure the platform stays within bounds
+      xPos = xPos + xOffset;
+      xPos = Math.max(0, Math.min(this.canvas.width - width, xPos));
+    }
+    
     let platformType = this.getPlatformType();
+    
+    // For the first 200 distance traveled, avoid spike platforms at lower positions
+    // This gives the player time to learn the game before facing dangerous obstacles
+    if (this.totalDistanceTraveled < 200 && platformType === PlatformType.SPIKE) {
+      platformType = PlatformType.NORMAL;
+    }
+    
     const platform = createPlatform(xPos, yPos, width, platformType);
     this.platforms.push(platform);
   }
@@ -199,6 +233,7 @@ export class GameEngine {
   }
 
   updatePlatforms() {
+    // Move all platforms upward at the scroll speed
     for (const platform of this.platforms) {
       platform.y -= this.SCROLL_SPEED;
       if (platform.timer !== undefined) {
@@ -218,21 +253,55 @@ export class GameEngine {
     // Remove platforms that are off the top of the screen
     this.platforms = this.platforms.filter(platform => platform.y + PLATFORM_HEIGHT > 0);
 
+    // Find the lowest platform (furthest down the screen)
     if (this.platforms.length > 0) {
       const lowestPlatform = this.platforms.reduce(
         (lowest, current) => current.y > lowest.y ? current : lowest, 
         this.platforms[0]
       );
       
-      // Generate platforms when the lowest is less than 80% of canvas height
-      // This ensures platforms are generated lower on the screen
-      if (lowestPlatform.y < this.canvas.height * 0.8) {
+      // Calculate how far down we should generate platforms
+      // We want to ensure platforms are generated well ahead of the player's descent
+      const viewportBottom = this.cameraY + this.canvas.height;
+      const extraDistance = this.canvas.height; // Generate one full screen height extra platforms
+      
+      // Keep generating platforms until we have enough below the viewport
+      while (lowestPlatform.y < viewportBottom + extraDistance) {
         const newY = lowestPlatform.y + PLATFORM_VERTICAL_GAP;
-        this.addPlatform(newY);
+        
+        // Chance to generate multiple platforms at the same height increases with score
+        const multiPlatformChance = Math.min(0.4, 0.2 + this.score / 1000);
+        const platformCount = Math.random() < multiPlatformChance ? 2 : 1;
+        
+        for (let i = 0; i < platformCount; i++) {
+          // For multiple platforms, offset them horizontally
+          const xOffset = i === 0 ? 0 : (Math.random() > 0.5 ? 
+                         this.canvas.width / 2 : -this.canvas.width / 2);
+          this.addPlatform(newY, xOffset);
+        }
+        
+        // Update our reference to the new lowest platform
+        const updatedLowestPlatform = this.platforms.reduce(
+          (lowest, current) => current.y > lowest.y ? current : lowest, 
+          this.platforms[0]
+        );
+        
+        // If we didn't actually get a lower platform, manually increment to avoid infinite loop
+        if (updatedLowestPlatform.y <= lowestPlatform.y) {
+          break;
+        }
+        
+        // Update for next iteration
+        lowestPlatform.y = updatedLowestPlatform.y;
       }
     } else {
       // If no platforms exist, create one at 80% of canvas height
       this.addPlatform(this.canvas.height * 0.8);
+    }
+    
+    // Debug log for platform count (can be removed in production)
+    if (this.score % 100 === 0) {
+      console.log(`Platforms: ${this.platforms.length}, Character Y: ${Math.round(this.character.y)}`);
     }
   }
 
