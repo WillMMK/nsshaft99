@@ -36,15 +36,17 @@ const GameCanvas = ({
     onGameOver
   });
 
-  // Handle keyboard controls
+  // Handle keyboard controls - improved with better movement handling
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'ArrowLeft') {
         movingLeft.current = true;
-        updateMovement(true, false);
+        updateMovement(true, movingRight.current);
+        console.log("LEFT key down");
       } else if (e.key === 'ArrowRight') {
         movingRight.current = true;
-        updateMovement(false, true);
+        updateMovement(movingLeft.current, true);
+        console.log("RIGHT key down");
       }
     };
 
@@ -52,15 +54,21 @@ const GameCanvas = ({
       if (e.key === 'ArrowLeft') {
         movingLeft.current = false;
         updateMovement(false, movingRight.current);
+        console.log("LEFT key up");
       } else if (e.key === 'ArrowRight') {
         movingRight.current = false;
         updateMovement(movingLeft.current, false);
+        console.log("RIGHT key up");
       }
     };
 
+    // Add the event listeners
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
 
+    console.log("Keyboard controls initialized");
+
+    // Cleanup function
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);

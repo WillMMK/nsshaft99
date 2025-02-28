@@ -184,60 +184,44 @@ export class GameEngine {
   
   // Update character position and apply physics
   updateCharacter(deltaTime: number) {
-    // Handle horizontal movement with direct x-position changes
-    // Apply a higher speed value for more noticeable movement
+    // Handle horizontal movement with fixed speeds
     if (this.isMovingLeft && !this.isMovingRight) {
-      // Apply larger movement per frame for visibility
-      this.character.x -= CHARACTER_SPEED * 2;
+      this.character.x -= 5; // Fixed speed, no need for CHARACTER_SPEED
       this.character.facingDirection = -1;
-      console.log("Moving LEFT:", this.character.x);
     } else if (this.isMovingRight && !this.isMovingLeft) {
-      // Apply larger movement per frame for visibility
-      this.character.x += CHARACTER_SPEED * 2;
+      this.character.x += 5; // Fixed speed, no need for CHARACTER_SPEED
       this.character.facingDirection = 1;
-      console.log("Moving RIGHT:", this.character.x);
     }
     
-    // Apply gravity with consistent acceleration
-    this.character.velocityY += GRAVITY * 2; // Double gravity for better feel
+    // Apply gravity - constant acceleration downward
+    this.character.velocityY += 0.5; // Fixed gravity value
     
-    // Apply terminal velocity cap
-    if (this.character.velocityY > TERMINAL_VELOCITY) {
-      this.character.velocityY = TERMINAL_VELOCITY;
+    // Terminal velocity cap to prevent falling too fast
+    if (this.character.velocityY > 10) { // Fixed terminal velocity
+      this.character.velocityY = 10;
     }
     
-    // Update vertical position
+    // Update vertical position based on velocity
     this.character.y += this.character.velocityY;
     
-    // Apply strict screen boundary checks
+    // Ensure character stays within horizontal boundaries
     if (this.character.x < 0) {
       this.character.x = 0;
     } else if (this.character.x + this.character.width > this.canvas.width) {
       this.character.x = this.canvas.width - this.character.width;
     }
     
-    // Log character position for debugging
-    if (Math.random() < 0.01) { // Log only occasionally to avoid flooding
-      console.log(`Character at (${this.character.x.toFixed(0)}, ${this.character.y.toFixed(0)}), velocity: ${this.character.velocityY.toFixed(2)}`);
-    }
-    
-    // Handle conveyor belt effect with more pronounced movement
+    // Apply conveyor belt effect
     if (this.lastPlatformLanded && this.lastPlatformLanded.type === PlatformType.CONVEYOR) {
-      // Determine conveyor direction (based on platform ID to make it consistent)
       const conveyorDirection = this.lastPlatformLanded.id % 2 === 0 ? 1 : -1;
-      this.character.x += conveyorDirection * 2.0; // Double the effect
+      this.character.x += conveyorDirection * 2.0;
     }
   }
   
   // Update platforms (scrolling, removing, adding new ones)
   updatePlatforms(deltaTime: number) {
     // Set a larger scroll amount for more noticeable movement
-    const scrollAmount = 5; // Force a constant value, ignore this.scrollSpeed for now
-    
-    // Log platform movement for debugging
-    if (Math.random() < 0.01) {
-      console.log(`Platforms: ${this.platforms.length}, Scroll amount: ${scrollAmount}`);
-    }
+    const scrollAmount = 2; // Fixed scroll speed
     
     // Move all platforms up (simulating player falling down)
     for (const platform of this.platforms) {
@@ -268,14 +252,10 @@ export class GameEngine {
       if (lowestPlatform.y < this.canvas.height + 100) {
         const newY = lowestPlatform.y + PLATFORM_VERTICAL_GAP;
         this.addPlatform(newY);
-        
-        // Debug log when adding platform
-        console.log(`Added new platform at y=${newY}`);
       }
     } else {
       // If we somehow lost all platforms, add one
       this.addPlatform(this.canvas.height - 50);
-      console.log("No platforms found, adding emergency platform");
     }
   }
   
