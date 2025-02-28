@@ -14,7 +14,8 @@ import {
   HEALTH_GAIN,
   DAMAGE_AMOUNT,
   SCORE_PER_PLATFORM,
-  SCORE_PER_DISTANCE
+  SCORE_PER_DISTANCE,
+  INVINCIBILITY_DURATION
 } from './constants';
 import { Platform, PlatformType, createPlatform, drawPlatform } from './platform';
 import { drawCharacter, Character } from './character';
@@ -207,6 +208,7 @@ export class GameEngine {
   }
 
   updateCharacter() {
+    // Movement based on input
     if (this.isMovingLeft && !this.isMovingRight) {
       this.character.x -= this.MOVE_SPEED;
     } 
@@ -214,21 +216,31 @@ export class GameEngine {
       this.character.x += this.MOVE_SPEED;
     }
 
+    // Apply gravity and update position
     this.character.velocityY += this.GRAVITY_FORCE;
     if (this.character.velocityY > TERMINAL_VELOCITY) {
       this.character.velocityY = TERMINAL_VELOCITY;
     }
     this.character.y += this.character.velocityY;
 
+    // Handle screen bounds
     if (this.character.x < 0) {
       this.character.x = 0;
     } else if (this.character.x + this.character.width > this.canvas.width) {
       this.character.x = this.canvas.width - this.character.width;
     }
 
+    // Handle conveyor belt platforms
     if (this.lastPlatformLanded && this.lastPlatformLanded.type === PlatformType.CONVEYOR) {
       const conveyorDirection = this.lastPlatformLanded.id % 2 === 0 ? 1 : -1;
       this.character.x += conveyorDirection * 2.0;
+    }
+    
+    // Update invincibility status
+    if (this.character.isInvincible) {
+      if (Date.now() > this.character.invincibleUntil!) {
+        this.character.isInvincible = false;
+      }
     }
   }
 
@@ -374,10 +386,23 @@ export class GameEngine {
   }
 
   takeDamage() {
+    // Skip damage if character is invincible
+    if (this.character.isInvincible) {
+      return;
+    }
+    
+    // Apply damage
     this.health -= DAMAGE_AMOUNT;
     if (this.health < 0) this.health = 0;
     this.onUpdateHealth(this.health);
     playSound('hurt');
+    
+    // Make character invincible for a short period
+    this.character.isInvincible = true;
+    this.character.invincibleUntil = Date.now() + INVINCIBILITY_DURATION;
+    
+    // Visual feedback for taking damage
+    this.character.velocityY = -TERMINAL_VELOCITY * 0.5; // Small bounce to avoid consecutive hits
   }
 
   heal() {
