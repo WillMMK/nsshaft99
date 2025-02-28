@@ -53,6 +53,11 @@ export class GameEngine {
     this.onUpdateScore = onUpdateScore;
     this.onGameOver = onGameOver;
 
+    // Increase difficulty parameters
+    this.MOVE_SPEED = 5.5;      // Faster horizontal movement (was 5)
+    this.GRAVITY_FORCE = 0.6;   // Stronger gravity (was 0.5)
+    this.SCROLL_SPEED = 2.5;    // Faster screen scrolling (was 2)
+
     console.log("Canvas dimensions:", canvas.width, canvas.height);
 
     // Position character slightly above the start platform at 60% canvas height
@@ -245,32 +250,31 @@ export class GameEngine {
   }
 
   getPlatformType(): PlatformType {
-    // More balanced platform type distribution with more normal platforms at the start
-    // This is more forgiving for new players
+    // More challenging platform type distribution
     const rand = Math.random();
     const score = this.score;
     
     // As score increases, make game harder by spawning more special platforms
     if (score < 100) {
-      // Early game: mostly normal platforms
-      if (rand < 0.85) return PlatformType.NORMAL;
-      if (rand < 0.9) return PlatformType.SPRING;
-      if (rand < 0.95) return PlatformType.CONVEYOR;
-      if (rand < 0.98) return PlatformType.COLLAPSING;
-      return PlatformType.SPIKE;
-    } else if (score < 500) {
-      // Mid game: increased difficulty
-      if (rand < 0.7) return PlatformType.NORMAL;
-      if (rand < 0.8) return PlatformType.CONVEYOR;
-      if (rand < 0.9) return PlatformType.SPRING;
+      // Early game: still moderately challenging
+      if (rand < 0.7) return PlatformType.NORMAL;  // Reduced normal platforms
+      if (rand < 0.8) return PlatformType.SPRING;
+      if (rand < 0.9) return PlatformType.CONVEYOR;
       if (rand < 0.95) return PlatformType.COLLAPSING;
       return PlatformType.SPIKE;
+    } else if (score < 400) {  // Reduced the mid-game threshold for faster progression
+      // Mid game: more hazards
+      if (rand < 0.55) return PlatformType.NORMAL;  // Less than half are normal platforms
+      if (rand < 0.7) return PlatformType.CONVEYOR;
+      if (rand < 0.8) return PlatformType.SPRING;
+      if (rand < 0.9) return PlatformType.COLLAPSING;
+      return PlatformType.SPIKE;
     } else {
-      // Late game: challenging
-      if (rand < 0.5) return PlatformType.NORMAL;
-      if (rand < 0.65) return PlatformType.CONVEYOR;
-      if (rand < 0.8) return PlatformType.COLLAPSING;
-      if (rand < 0.9) return PlatformType.SPIKE;
+      // Late game: very challenging
+      if (rand < 0.4) return PlatformType.NORMAL;  // Only 40% normal platforms
+      if (rand < 0.55) return PlatformType.CONVEYOR;
+      if (rand < 0.7) return PlatformType.COLLAPSING;
+      if (rand < 0.85) return PlatformType.SPIKE; // More spikes
       return PlatformType.SPRING;
     }
   }
@@ -422,16 +426,20 @@ export class GameEngine {
     let isOnPlatform = false;
     this.lastPlatformLanded = null;
 
-    // Ceiling collision handling
-    if (this.character.y <= CEILING_HEIGHT) {
+    // Ceiling moves with camera, so we need to use cameraY for collision detection
+    const ceilingYPos = this.cameraY;
+    const ceilingBottomY = ceilingYPos + CEILING_HEIGHT;
+    
+    // Ceiling collision handling - ceiling follows the character with the camera
+    if (this.character.y <= ceilingBottomY) {
       // If character tries to go above ceiling, stop upward movement
       if (this.character.velocityY < 0) {
         this.character.velocityY = 0;
       }
       
       // Prevent character from going above ceiling - just stop them at the border
-      if (this.character.y < CEILING_HEIGHT) {
-        this.character.y = CEILING_HEIGHT;
+      if (this.character.y < ceilingBottomY) {
+        this.character.y = ceilingBottomY;
         
         // Apply instantaneous and deadly damage when hitting the ceiling
         if (!this.character.isInvincible) {
@@ -453,15 +461,18 @@ export class GameEngine {
     const spikeIndex = Math.floor(this.character.x / spikeWidth);
     const spikeXCenter = spikeIndex * spikeWidth + spikeWidth / 2;
     
-    // Calculate a more precise triangle hit area for each spike
+    // Calculate a more aggressive triangle hit area for each spike
     const charMidX = this.character.x + this.character.width/2;
     const distanceFromSpikeCenter = Math.abs(charMidX - spikeXCenter);
-    const hitAreaWidth = spikeWidth * 0.8; // 80% of spike width for more forgiving hit detection
+    const hitAreaWidth = spikeWidth; // Full spike width for more challenging gameplay
+    
+    // Calculate spike tip position (50% larger than before)
+    const spikeLength = SPIKE_HEIGHT * 1.5;
     
     // Character is touching a spike if they're below ceiling but close enough to a spike
     if (
-      this.character.y <= CEILING_HEIGHT + SPIKE_HEIGHT &&  // Within vertical range of spikes
-      this.character.y > CEILING_HEIGHT &&                  // Below the ceiling itself
+      this.character.y <= ceilingBottomY + spikeLength &&  // Within vertical range of spikes
+      this.character.y > ceilingBottomY &&                 // Below the ceiling itself
       distanceFromSpikeCenter < hitAreaWidth/2 &&          // Within horizontal hit range
       !this.character.isInvincible                         // Not invincible
     ) {
@@ -592,9 +603,12 @@ export class GameEngine {
   drawCeiling() {
     const ctx = this.ctx;
     
+    // The ceiling should move with the camera to always be visible
+    const ceilingY = this.cameraY;
+    
     // Draw ceiling background
     ctx.fillStyle = '#212529';
-    ctx.fillRect(0, 0, this.canvas.width, CEILING_HEIGHT);
+    ctx.fillRect(0, ceilingY, this.canvas.width, CEILING_HEIGHT);
 
     // Draw spikes along the bottom of the ceiling
     ctx.fillStyle = '#F25C54'; // Red color for danger
@@ -603,18 +617,18 @@ export class GameEngine {
     for (let i = 0; i < CEILING_SPIKE_COUNT; i++) {
       const x = i * spikeWidth;
       
-      // Draw triangle spikes
+      // Draw larger triangle spikes for more challenge
       ctx.beginPath();
-      ctx.moveTo(x, CEILING_HEIGHT); // Left corner
-      ctx.lineTo(x + spikeWidth / 2, CEILING_HEIGHT + SPIKE_HEIGHT); // Bottom tip
-      ctx.lineTo(x + spikeWidth, CEILING_HEIGHT); // Right corner
+      ctx.moveTo(x, ceilingY + CEILING_HEIGHT); // Left corner
+      ctx.lineTo(x + spikeWidth / 2, ceilingY + CEILING_HEIGHT + SPIKE_HEIGHT * 1.5); // Bottom tip (50% larger)
+      ctx.lineTo(x + spikeWidth, ceilingY + CEILING_HEIGHT); // Right corner
       ctx.closePath();
       ctx.fill();
       
       // Add highlight/shadow effect to spikes for better visibility
       ctx.beginPath();
-      ctx.moveTo(x, CEILING_HEIGHT);
-      ctx.lineTo(x + spikeWidth / 2, CEILING_HEIGHT + SPIKE_HEIGHT);
+      ctx.moveTo(x, ceilingY + CEILING_HEIGHT);
+      ctx.lineTo(x + spikeWidth / 2, ceilingY + CEILING_HEIGHT + SPIKE_HEIGHT * 1.5);
       ctx.strokeStyle = '#FF8080'; // Lighter red for highlight
       ctx.lineWidth = 1;
       ctx.stroke();

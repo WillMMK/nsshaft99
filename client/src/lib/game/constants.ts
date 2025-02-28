@@ -1,9 +1,9 @@
 // Game constants
 export const INITIAL_HEALTH = 100;
 export const HEALTH_GAIN = 10; // Increased health gain for better balance
-export const DAMAGE_AMOUNT = 20; // Spike damage amount (balanced with invincibility)
-export const INVINCIBILITY_DURATION = 1500; // Invincibility period after taking damage (in milliseconds)
-export const INVINCIBILITY_FLASH_RATE = 200; // How quickly character flashes during invincibility
+export const DAMAGE_AMOUNT = 25; // Increased spike damage amount for more challenge
+export const INVINCIBILITY_DURATION = 1200; // Shortened invincibility period for harder gameplay
+export const INVINCIBILITY_FLASH_RATE = 150; // Faster flashing during invincibility
 
 // Character constants
 export const CHARACTER_SIZE = 24;
@@ -25,9 +25,9 @@ export const SPIKE_HEIGHT = 15;
 
 // Platform type probabilities (as game progresses these will change)
 export const INITIAL_PROBABILITIES = {
-  NORMAL: 0.6,
-  SPIKE: 0.1,
-  COLLAPSING: 0.1,
+  NORMAL: 0.5,  // Reduced normal platforms for more challenge
+  SPIKE: 0.15,  // Increased spike platforms
+  COLLAPSING: 0.15, // Increased collapsing platforms
   CONVEYOR: 0.1,
   SPRING: 0.1,
 };
