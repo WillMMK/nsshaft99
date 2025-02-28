@@ -422,23 +422,41 @@ export class GameEngine {
     this.lastPlatformLanded = null;
 
     // Check for ceiling collision
+    // Since spikes are now pointing down, we need to check if character's top edge touches them
     if (this.character.y <= CEILING_HEIGHT) {
-      // Only cancel upward velocity, don't force character down
+      // Stop upward movement when hitting the ceiling
       if (this.character.velocityY < 0) {
         this.character.velocityY = 0;
       }
       
-      // Don't forcibly set the Y position to ceiling height (that causes pushing)
-      // Just make sure they're not above it
+      // Make sure player doesn't go above ceiling, but never push down
       if (this.character.y < CEILING_HEIGHT) {
         this.character.y = CEILING_HEIGHT;
       }
       
-      // Apply damage when hitting the ceiling spikes
-      // This needs to happen only on actual collision, not just being near
-      if (this.character.y === CEILING_HEIGHT && !this.character.isInvincible) {
+      // Apply damage when hitting the ceiling (only if not invincible)
+      if (!this.character.isInvincible) {
         this.takeDamage();
       }
+    }
+    
+    // Check for collision with ceiling spikes
+    // We need a separate check since they point downward from the ceiling
+    const spikeWidth = this.canvas.width / CEILING_SPIKE_COUNT;
+    const spikeIndex = Math.floor(this.character.x / spikeWidth);
+    const spikeXCenter = spikeIndex * spikeWidth + spikeWidth / 2;
+    
+    // Calculate a triangle hit area for each spike
+    const distanceFromSpikeCenter = Math.abs(this.character.x + this.character.width/2 - spikeXCenter);
+    const spikeReach = Math.max(0, SPIKE_HEIGHT - distanceFromSpikeCenter/2);
+    
+    // If character is within spike reach, check for collision
+    if (
+      this.character.y <= CEILING_HEIGHT + spikeReach && 
+      this.character.y > CEILING_HEIGHT &&
+      !this.character.isInvincible
+    ) {
+      this.takeDamage();
     }
 
     // Check platform collisions
@@ -557,19 +575,33 @@ export class GameEngine {
 
   drawCeiling() {
     const ctx = this.ctx;
+    
+    // Draw ceiling background
     ctx.fillStyle = '#212529';
     ctx.fillRect(0, 0, this.canvas.width, CEILING_HEIGHT);
 
-    ctx.fillStyle = '#F25C54';
+    // Draw spikes along the bottom of the ceiling
+    ctx.fillStyle = '#F25C54'; // Red color for danger
     const spikeWidth = this.canvas.width / CEILING_SPIKE_COUNT;
+    
     for (let i = 0; i < CEILING_SPIKE_COUNT; i++) {
       const x = i * spikeWidth;
+      
+      // Draw triangle spikes
       ctx.beginPath();
-      ctx.moveTo(x, CEILING_HEIGHT);
-      ctx.lineTo(x + spikeWidth / 2, CEILING_HEIGHT - SPIKE_HEIGHT);
-      ctx.lineTo(x + spikeWidth, CEILING_HEIGHT);
+      ctx.moveTo(x, CEILING_HEIGHT); // Left corner
+      ctx.lineTo(x + spikeWidth / 2, CEILING_HEIGHT + SPIKE_HEIGHT); // Bottom tip
+      ctx.lineTo(x + spikeWidth, CEILING_HEIGHT); // Right corner
       ctx.closePath();
       ctx.fill();
+      
+      // Add highlight/shadow effect to spikes for better visibility
+      ctx.beginPath();
+      ctx.moveTo(x, CEILING_HEIGHT);
+      ctx.lineTo(x + spikeWidth / 2, CEILING_HEIGHT + SPIKE_HEIGHT);
+      ctx.strokeStyle = '#FF8080'; // Lighter red for highlight
+      ctx.lineWidth = 1;
+      ctx.stroke();
     }
   }
 }
