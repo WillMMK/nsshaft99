@@ -97,65 +97,32 @@ export class GameEngine {
     const startPlatform = createPlatform(startX, startY, 100, PlatformType.NORMAL);
     this.platforms.push(startPlatform);
 
-    // Generate additional platforms with appropriate spacing and variation
+    // Generate additional platforms with appropriate spacing - one per level
     // Start from the first platform position
-    let yPos = startY + PLATFORM_VERTICAL_GAP;
+    let yPos = startY;
     
-    // Track the last generated Y position to prevent duplicate heights
-    let lastYPositions: number[] = [startY];
-    
-    // Increase initial platform count to ensure more floors are available
-    // Generate platforms all the way to double the canvas height
+    // Generate platforms all the way to double the canvas height,
+    // with exactly one platform per level
     while (yPos < this.canvas.height * 2) {
-      // Add some slight vertical variation to avoid exact spacing
-      const variance = PLATFORM_VERTICAL_GAP * 0.15; // 15% variance
-      yPos += (Math.random() * variance) - (variance / 2);
-      
-      // Skip if too close to any recent platform's height
-      const tooClose = lastYPositions.some(lastY => Math.abs(lastY - yPos) < PLATFORM_HEIGHT * 1.5);
-      if (tooClose) {
-        yPos += PLATFORM_HEIGHT * 2; // Skip ahead if too close
-      }
-      
-      // Add more platforms at each level for better horizontal distribution
-      // This gives the player more landing options
-      const platformCount = Math.random() < 0.4 ? 2 : 1; // 40% chance of 2 platforms at same level
-      
-      // Store x positions of platforms at this level to prevent overlap
-      const xPositionsAtThisLevel: number[] = [];
-      
-      for (let i = 0; i < platformCount; i++) {
-        // For multiple platforms, ensure better horizontal distribution
-        let xOffset = 0;
-        if (i > 0) {
-          // If second platform, place it on the opposite side
-          const firstX = xPositionsAtThisLevel[0];
-          const firstIsLeft = firstX < this.canvas.width / 2;
-          
-          // Place opposite to first platform with some randomness
-          xOffset = firstIsLeft ? 
-            this.canvas.width * (0.5 + Math.random() * 0.3) : // Right side
-            -(this.canvas.width * (0.5 + Math.random() * 0.3)); // Left side
-        } else {
-          // Alternate sides for first platform at each level for variety
-          xOffset = Math.random() < 0.5 ? 
-            -(this.canvas.width * 0.25 * Math.random()) : // Left side bias
-            (this.canvas.width * 0.25 * Math.random());   // Right side bias
-        }
-        
-        // Create platform and track its position
-        const platform = this.addPlatform(yPos, xOffset);
-        xPositionsAtThisLevel.push(platform.x);
-      }
-      
-      // Remember this Y position to avoid duplicates
-      lastYPositions.push(yPos);
-      if (lastYPositions.length > 3) { // Only keep track of the 3 most recent
-        lastYPositions.shift();
-      }
-      
-      // Move to next level
+      // Move to next level with fixed distance
       yPos += PLATFORM_VERTICAL_GAP;
+      
+      // Calculate a random horizontal position for the platform
+      // Ensure platforms aren't too close to the edges
+      const edgeMargin = MIN_PLATFORM_WIDTH * 0.5;
+      const availableWidth = this.canvas.width - (2 * edgeMargin) - MIN_PLATFORM_WIDTH;
+      const randomX = edgeMargin + (Math.random() * availableWidth);
+      
+      // Create just one platform at each level with randomized horizontal position
+      const platform = createPlatform(
+        randomX, 
+        yPos, 
+        MIN_PLATFORM_WIDTH + Math.random() * (MAX_PLATFORM_WIDTH - MIN_PLATFORM_WIDTH),
+        PlatformType.NORMAL
+      );
+      
+      // Add the platform to our collection
+      this.platforms.push(platform);
     }
     
     console.log("Initialized", this.platforms.length, "platforms");
@@ -386,16 +353,20 @@ export class GameEngine {
       while (lowestPlatform.y < viewportBottom + extraDistance) {
         const newY = lowestPlatform.y + PLATFORM_VERTICAL_GAP;
         
-        // Chance to generate multiple platforms at the same height increases with score
-        const multiPlatformChance = Math.min(0.4, 0.2 + this.score / 1000);
-        const platformCount = Math.random() < multiPlatformChance ? 2 : 1;
+        // Always generate exactly one platform per level as requested
+        // This makes the game more challenging as there are fewer options
         
-        for (let i = 0; i < platformCount; i++) {
-          // For multiple platforms, offset them horizontally
-          const xOffset = i === 0 ? 0 : (Math.random() > 0.5 ? 
-                         this.canvas.width / 2 : -this.canvas.width / 2);
-          this.addPlatform(newY, xOffset);
-        }
+        // Randomize the horizontal position for variety
+        // Ensure platforms aren't too close to the edges
+        const edgeMargin = MIN_PLATFORM_WIDTH * 0.5;
+        const availableWidth = this.canvas.width - (2 * edgeMargin) - MIN_PLATFORM_WIDTH;
+        const randomX = edgeMargin + (Math.random() * availableWidth);
+        
+        // Create just one platform with a random horizontal position
+        this.addPlatform(newY, randomX - this.canvas.width/2);
+        
+        // Log platform creation for debugging
+        console.log(`Created platform at y=${Math.round(newY)}, with randomX=${Math.round(randomX)}`)
         
         // Update our reference to the new lowest platform
         const updatedLowestPlatform = this.platforms.reduce(
