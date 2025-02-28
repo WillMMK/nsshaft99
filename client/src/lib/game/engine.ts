@@ -131,6 +131,33 @@ export class GameEngine {
       xPos = Math.max(0, Math.min(this.canvas.width - width, xPos));
     }
     
+    // Check for overlapping platforms at the same y position and adjust if needed
+    const sameHeightPlatforms = this.platforms.filter(p => 
+      Math.abs(p.y - yPos) < PLATFORM_HEIGHT * 1.5
+    );
+    
+    if (sameHeightPlatforms.length > 0) {
+      // Check if our new platform would overlap with any existing platform
+      const wouldOverlap = sameHeightPlatforms.some(p => {
+        // Check if the horizontal ranges overlap
+        const overlapLeft = xPos < (p.x + p.width) && xPos > p.x - width;
+        const overlapRight = (xPos + width) > p.x && (xPos + width) < (p.x + p.width + width);
+        return overlapLeft || overlapRight;
+      });
+      
+      if (wouldOverlap) {
+        // If would overlap, shift to the other side of the screen if possible
+        if (xPos < this.canvas.width / 2) {
+          xPos = this.canvas.width / 2 + Math.random() * (this.canvas.width / 2 - width);
+        } else {
+          xPos = Math.random() * (this.canvas.width / 2 - width);
+        }
+        
+        // Final bounds check
+        xPos = Math.max(0, Math.min(this.canvas.width - width, xPos));
+      }
+    }
+    
     let platformType = this.getPlatformType();
     
     // For the first 200 distance traveled, avoid spike platforms at lower positions
@@ -321,12 +348,23 @@ export class GameEngine {
     let isOnPlatform = false;
     this.lastPlatformLanded = null;
 
+    // Check for ceiling collision
     if (this.character.y < CEILING_HEIGHT) {
+      // Only stop upward movement but don't push down
+      if (this.character.velocityY < 0) {
+        this.character.velocityY = 0;
+      }
+      
+      // Keep character at ceiling but let them move horizontally
       this.character.y = CEILING_HEIGHT;
-      this.character.velocityY = 1;
-      this.takeDamage();
+      
+      // Apply damage when hitting the ceiling spikes
+      if (!this.character.isInvincible) {
+        this.takeDamage();
+      }
     }
 
+    // Check platform collisions
     for (const platform of this.platforms) {
       if (platform.collapsed) continue;
 
@@ -335,7 +373,7 @@ export class GameEngine {
       const onPlatformY = this.character.y + this.character.height <= platform.y + 5 && 
                           this.character.y + this.character.height + this.character.velocityY >= platform.y;
 
-      if (onPlatformX && onPlatformY && this.character.velocityY >= 0) { // Changed > 0 to >= 0 for consistency
+      if (onPlatformX && onPlatformY && this.character.velocityY >= 0) {
         this.character.y = platform.y - this.character.height;
         this.character.velocityY = 0;
         isOnPlatform = true;
@@ -364,6 +402,7 @@ export class GameEngine {
       }
     }
 
+    // Update collapsing platforms
     for (const platform of this.platforms) {
       if (platform.type === PlatformType.COLLAPSING && platform.timer !== undefined && platform.timer <= 0) {
         platform.collapsed = true;

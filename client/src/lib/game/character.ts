@@ -25,17 +25,31 @@ export function drawCharacter(ctx: CanvasRenderingContext2D, character: Characte
   
   // Handle invincibility visual effect (flashing)
   if (isInvincible) {
-    // Create flashing effect by alternating opacity based on timestamp
+    // Create more noticeable flashing effect by alternating between visibility states
     const flashRate = INVINCIBILITY_FLASH_RATE;
     const shouldFlash = Math.floor(Date.now() / flashRate) % 2 === 0;
     
     if (shouldFlash) {
-      ctx.globalAlpha = 0.5; // Half transparency for flash effect
+      // Add a bright glow effect during flash
+      ctx.shadowColor = '#FFD700'; // Gold color
+      ctx.shadowBlur = 15;
+      
+      // Draw a protective aura
+      const gradient = ctx.createRadialGradient(
+        x + width/2, y + height/2, width/3,
+        x + width/2, y + height/2, width
+      );
+      gradient.addColorStop(0, 'rgba(255, 215, 0, 0.3)'); // Gold with transparency
+      gradient.addColorStop(1, 'rgba(255, 215, 0, 0)');    // Transparent at the edge
+      
+      ctx.fillStyle = gradient;
+      ctx.beginPath();
+      ctx.arc(x + width/2, y + height/2, width, 0, Math.PI * 2);
+      ctx.fill();
+    } else {
+      // Semi-transparent on alternate frames
+      ctx.globalAlpha = 0.7;
     }
-    
-    // Add a glow effect to show invincibility
-    ctx.shadowColor = '#FFFFFF';
-    ctx.shadowBlur = 10;
   }
   
   // Draw the body (a circle)
@@ -78,14 +92,58 @@ export function drawCharacter(ctx: CanvasRenderingContext2D, character: Characte
   
   // Draw invincibility indicator if active
   if (isInvincible) {
-    // Draw a halo effect around the character
-    ctx.strokeStyle = '#FFD166';
-    ctx.lineWidth = 2;
+    // Draw a pulsing shield effect
+    const pulseRate = 300; // ms
+    const pulseAmount = Math.sin(Date.now() / pulseRate) * 0.2 + 0.8; // value between 0.6 and 1.0
+    
+    ctx.strokeStyle = `rgba(255, 209, 102, ${pulseAmount})`; // Pulsing opacity
+    ctx.lineWidth = 3;
     ctx.setLineDash([5, 3]); // Dashed line for dynamic effect
     ctx.beginPath();
     ctx.arc(x + width / 2, y + height / 2, width / 2 + 5, 0, Math.PI * 2);
     ctx.stroke();
+    
+    // Add stars/sparkles around character to emphasize invincibility
+    const starCount = 3;
+    const now = Date.now();
+    
+    for (let i = 0; i < starCount; i++) {
+      const angle = (now / 500 + i * (Math.PI * 2 / starCount)) % (Math.PI * 2);
+      const starX = x + width/2 + Math.cos(angle) * (width/2 + 8);
+      const starY = y + height/2 + Math.sin(angle) * (height/2 + 8);
+      
+      // Draw a small star
+      ctx.fillStyle = '#FFFFFF';
+      drawStar(ctx, starX, starY, 4, 2, 4);
+    }
   }
   
   ctx.restore();
+}
+
+// Helper function to draw stars for invincibility effect
+function drawStar(ctx: CanvasRenderingContext2D, x: number, y: number, outerRadius: number, innerRadius: number, spikes: number) {
+  let rot = Math.PI / 2 * 3;
+  let step = Math.PI / spikes;
+  
+  ctx.beginPath();
+  ctx.moveTo(x, y - outerRadius);
+  
+  for (let i = 0; i < spikes; i++) {
+    ctx.lineTo(
+      x + Math.cos(rot) * outerRadius,
+      y + Math.sin(rot) * outerRadius
+    );
+    rot += step;
+    
+    ctx.lineTo(
+      x + Math.cos(rot) * innerRadius,
+      y + Math.sin(rot) * innerRadius
+    );
+    rot += step;
+  }
+  
+  ctx.lineTo(x, y - outerRadius);
+  ctx.closePath();
+  ctx.fill();
 }
