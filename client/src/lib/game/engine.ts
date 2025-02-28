@@ -40,6 +40,9 @@ export class GameEngine {
   platforms: Platform[] = [];
   totalDistanceTraveled: number = 0;
   
+  // Camera system
+  cameraY: number = 0; // Add camera offset
+  
   // Constants for smooth gameplay
   private MOVE_SPEED = 5;
   private GRAVITY_FORCE = 0.5;
@@ -77,6 +80,9 @@ export class GameEngine {
     };
     
     console.log("Character initialized at:", this.character.x, this.character.y);
+    
+    // Initialize camera to center the character
+    this.cameraY = this.character.y - this.canvas.height / 2;
     
     // Initialize platforms
     this.initializePlatforms();
@@ -169,6 +175,9 @@ export class GameEngine {
     // Update platforms
     this.updatePlatforms();
     
+    // Update camera position
+    this.updateCamera();
+    
     // Check for collisions
     this.checkCollisions();
     
@@ -177,6 +186,14 @@ export class GameEngine {
     
     // Draw everything
     this.draw();
+  }
+  
+  // Add method to update camera position
+  updateCamera() {
+    // Target camera position to keep character in the upper third of the screen
+    const targetCameraY = this.character.y - this.canvas.height / 3;
+    // Smoothly interpolate camera position
+    this.cameraY += (targetCameraY - this.cameraY) * 0.1; // Adjust 0.1 for smoothness
   }
   
   // Update character position and apply physics
@@ -331,8 +348,11 @@ export class GameEngine {
   
   // Check if game over conditions are met
   checkGameOver() {
-    // Check if character fell off the bottom of the screen
-    if (this.character.y > this.canvas.height) {
+    // Check if character fell below the lowest platform plus a buffer
+    const lowestPlatformY = this.platforms.length > 0
+      ? this.platforms.reduce((lowest, current) => current.y > lowest.y ? current : lowest, this.platforms[0]).y
+      : this.canvas.height;
+    if (this.character.y > lowestPlatformY + this.canvas.height) {
       this.gameActive = false;
       this.onGameOver();
     }
@@ -372,6 +392,12 @@ export class GameEngine {
     ctx.fillStyle = '#212529';
     ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
     
+    // Save context to apply camera transform
+    ctx.save();
+    
+    // Apply camera offset (move the world down as camera moves up)
+    ctx.translate(0, -this.cameraY);
+    
     // Draw ceiling with spikes
     this.drawCeiling();
     
@@ -385,10 +411,14 @@ export class GameEngine {
     // Draw character
     drawCharacter(ctx, this.character);
     
-    // Debug info - draw character position
+    // Restore context to remove camera transform for UI elements
+    ctx.restore();
+    
+    // Debug info - draw character position and camera info
     ctx.fillStyle = 'white';
     ctx.font = '10px Arial';
     ctx.fillText(`Char: (${Math.round(this.character.x)}, ${Math.round(this.character.y)})`, 10, 60);
+    ctx.fillText(`CameraY: ${Math.round(this.cameraY)}`, 10, 70);
     ctx.fillText(`Moving: ${this.isMovingLeft ? 'LEFT' : ''}${this.isMovingRight ? 'RIGHT' : ''}`, 10, 80);
     ctx.fillText(`Platforms: ${this.platforms.length}`, 10, 100);
   }
