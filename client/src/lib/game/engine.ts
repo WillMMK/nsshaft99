@@ -76,6 +76,17 @@ export class GameEngine {
     
     // Initialize platforms
     this.initializePlatforms();
+    
+    // Initialize health and score
+    this.health = 100; // Set default health
+    this.onUpdateHealth(this.health);
+    this.score = 0;
+    this.onUpdateScore(this.score);
+    
+    // Reset game state
+    this.totalDistanceTraveled = 0;
+    this.scrollSpeed = SCROLL_SPEED_INITIAL;
+    this.gameActive = true;
   }
   
   // Set up initial platforms
@@ -173,30 +184,28 @@ export class GameEngine {
   
   // Update character position and apply physics
   updateCharacter(deltaTime: number) {
-    // Apply horizontal movement from controls with normalized deltaTime
-    const normalizedDelta = deltaTime / 16.67; // Normalize to 60fps
+    // We'll use a constant timestep for more predictable physics
+    const normalizedDelta = 1.0; // Fix to a constant value for stable physics
     
+    // Handle horizontal movement - direct assignment rather than velocity-based
     if (this.isMovingLeft && !this.isMovingRight) {
-      this.character.velocityX = -CHARACTER_SPEED;
+      this.character.x -= CHARACTER_SPEED;
       this.character.facingDirection = -1;
     } else if (this.isMovingRight && !this.isMovingLeft) {
-      this.character.velocityX = CHARACTER_SPEED;
+      this.character.x += CHARACTER_SPEED;
       this.character.facingDirection = 1;
-    } else {
-      this.character.velocityX = 0;
     }
     
-    // Apply gravity with smoother acceleration
-    this.character.velocityY += GRAVITY * normalizedDelta;
+    // Apply gravity with smoother acceleration 
+    this.character.velocityY += GRAVITY;
     
     // Terminal velocity check
     if (this.character.velocityY > TERMINAL_VELOCITY) {
       this.character.velocityY = TERMINAL_VELOCITY;
     }
     
-    // Update position with normalized movement
-    this.character.x += this.character.velocityX * normalizedDelta;
-    this.character.y += this.character.velocityY * normalizedDelta;
+    // Update vertical position only 
+    this.character.y += this.character.velocityY;
     
     // Keep character within screen bounds
     if (this.character.x < 0) {
@@ -205,22 +214,22 @@ export class GameEngine {
       this.character.x = this.canvas.width - this.character.width;
     }
     
-    // Handle conveyor belt effect with more consistent speed
+    // Handle conveyor belt effect with simplified movement
     if (this.lastPlatformLanded && this.lastPlatformLanded.type === PlatformType.CONVEYOR) {
       // Determine conveyor direction (based on platform ID to make it consistent)
       const conveyorDirection = this.lastPlatformLanded.id % 2 === 0 ? 1 : -1;
-      this.character.x += conveyorDirection * 1.0 * normalizedDelta;
+      this.character.x += conveyorDirection * 1.0;
     }
   }
   
   // Update platforms (scrolling, removing, adding new ones)
   updatePlatforms(deltaTime: number) {
-    // Normalize deltaTime for consistent speed
-    const normalizedDelta = deltaTime / 16.67; // Normalize to 60fps
+    // Use a constant value for more predictable platform movement
+    const scrollAmount = this.scrollSpeed;
     
     // Move all platforms up (simulating player falling down)
     for (const platform of this.platforms) {
-      platform.y -= this.scrollSpeed * normalizedDelta;
+      platform.y -= scrollAmount;
       
       // If platform has a timer (like collapsing platforms), update it
       if (platform.timer !== undefined) {
@@ -228,8 +237,8 @@ export class GameEngine {
       }
     }
     
-    // Track distance for scoring with normalized delta for consistent speed
-    this.totalDistanceTraveled += this.scrollSpeed * normalizedDelta;
+    // Track distance for scoring with consistent increments
+    this.totalDistanceTraveled += scrollAmount;
     this.score = Math.floor(this.totalDistanceTraveled * SCORE_PER_DISTANCE);
     this.onUpdateScore(this.score);
     
