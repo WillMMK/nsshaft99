@@ -1,0 +1,35 @@
+Core Concept: NS-Shaft is an endless descending platformer. The player controls a small character who must continually drop down a deep, never-ending shaft by landing on a series of platforms​
+FUNCTIONOVERFLU.ITCH.IO
+. Only left and right movement is needed to position the character as they fall; there is no jump button, as gravity does the work. The challenge is to keep up with the descent – if you linger too long, spiked ceilings will catch up to you, but if you drop too fast without finding a platform, you’ll fall off the bottom of the screen​
+FUNCTIONOVERFLU.ITCH.IO
+.Life System: Uniquely, the game uses a life bar to gauge survival. Hitting deadly obstacles (like spikes on a platform or the ceiling) reduces your life, while each safe landing on a normal platform restores a bit of health​
+MACINTOSHREPOSITORY.ORG
+​
+NAGI-P.COM
+. This creates a rhythm of risk and reward – you can survive a few minor mistakes as long as you keep landing on platforms to heal. However, taking too many hits in a row will deplete the life gauge, resulting in game over​
+ZH.WIKIPEDIA.ORG
+. There are essentially two fail conditions: running out of life (from spike damage) or falling into the abyss at the bottom of the screen​
+ZH.WIKIPEDIA.ORG
+.Platform Types and Hazards: Part of the gameplay’s appeal is the variety of platform behaviors and traps that force the player to stay alert:
+Normal Floors: Static platforms that serve as safe ground. Landing on these increments your score and replenishes 1 life point​
+MACINTOSHREPOSITORY.ORG
+.
+Spiked Platforms: Some platforms have spikes on them – touching these will hurt the player (reducing life) and should be avoided​
+MYMAC.COM
+. Likewise, the cave’s ceiling is lined with spikes, preventing upwards movement.
+Collapsing Floors: Certain platforms “turn on you” or give way immediately when stepped on​
+MACINTOSHREPOSITORY.ORG
+. They only provide a split-second foothold before dropping out, so the player must quickly jump to the next platform.
+Conveyor Belts: Platforms that move horizontally (left or right) and can slide the character unexpectedly​
+MACINTOSHREPOSITORY.ORG
+. Stepping on a conveyor may propel you toward a gap or a spike, or conversely help you reach a safer spot, adding a strategic element.
+Springboards: Bouncy platforms that launch the player upward on contact​
+MACINTOSHREPOSITORY.ORG
+​
+MYMAC.COM
+. In NS-Shaft, springboards are a mixed blessing – a gentle bounce can help adjust your fall, but a strong bounce might fling you into the ceiling spikes if you’re not careful​
+MYMAC.COM
+.
+All these elements are randomly and procedurally generated as the game scrolls, so each playthrough presents a new sequence of challenges​
+GIANTBOMB.COM
+. The difficulty also increases the deeper you go (platforms may speed up or appear more sparsely). The controls are extremely simple (just two keys), but mastering how to navigate the ever-changing platform layout requires sharp reflexes and foresight.
