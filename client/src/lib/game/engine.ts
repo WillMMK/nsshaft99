@@ -92,35 +92,75 @@ export class GameEngine {
     const startPlatform = createPlatform(startX, startY, 100, PlatformType.NORMAL);
     this.platforms.push(startPlatform);
 
-    // Generate additional platforms with appropriate spacing
+    // Generate additional platforms with appropriate spacing and variation
+    // Start from the first platform position
     let yPos = startY + PLATFORM_VERTICAL_GAP;
+    
+    // Track the last generated Y position to prevent duplicate heights
+    let lastYPositions: number[] = [startY];
     
     // Increase initial platform count to ensure more floors are available
     // Generate platforms all the way to double the canvas height
     while (yPos < this.canvas.height * 2) {
-      // Add more platforms at each level for better horizontal distribution
-      // This gives the player more landing options
-      const platformCount = Math.random() < 0.3 ? 2 : 1; // 30% chance of 2 platforms at same level
+      // Add some slight vertical variation to avoid exact spacing
+      const variance = PLATFORM_VERTICAL_GAP * 0.15; // 15% variance
+      yPos += (Math.random() * variance) - (variance / 2);
       
-      for (let i = 0; i < platformCount; i++) {
-        // If adding a second platform, ensure it's positioned away from the first
-        let xOffset = 0;
-        if (i > 0 && this.platforms.length > 0) {
-          const lastPlatform = this.platforms[this.platforms.length - 1];
-          xOffset = lastPlatform.x > this.canvas.width / 2 ? 
-                    -this.canvas.width / 2 : // Place on left side
-                    this.canvas.width / 2;   // Place on right side
-        }
-        this.addPlatform(yPos, xOffset);
+      // Skip if too close to any recent platform's height
+      const tooClose = lastYPositions.some(lastY => Math.abs(lastY - yPos) < PLATFORM_HEIGHT * 1.5);
+      if (tooClose) {
+        yPos += PLATFORM_HEIGHT * 2; // Skip ahead if too close
       }
       
+      // Add more platforms at each level for better horizontal distribution
+      // This gives the player more landing options
+      const platformCount = Math.random() < 0.4 ? 2 : 1; // 40% chance of 2 platforms at same level
+      
+      // Store x positions of platforms at this level to prevent overlap
+      const xPositionsAtThisLevel: number[] = [];
+      
+      for (let i = 0; i < platformCount; i++) {
+        // For multiple platforms, ensure better horizontal distribution
+        let xOffset = 0;
+        if (i > 0) {
+          // If second platform, place it on the opposite side
+          const firstX = xPositionsAtThisLevel[0];
+          const firstIsLeft = firstX < this.canvas.width / 2;
+          
+          // Place opposite to first platform with some randomness
+          xOffset = firstIsLeft ? 
+            this.canvas.width * (0.5 + Math.random() * 0.3) : // Right side
+            -(this.canvas.width * (0.5 + Math.random() * 0.3)); // Left side
+        } else {
+          // Alternate sides for first platform at each level for variety
+          xOffset = Math.random() < 0.5 ? 
+            -(this.canvas.width * 0.25 * Math.random()) : // Left side bias
+            (this.canvas.width * 0.25 * Math.random());   // Right side bias
+        }
+        
+        // Create platform and track its position
+        const platform = this.addPlatform(yPos, xOffset);
+        xPositionsAtThisLevel.push(platform.x);
+      }
+      
+      // Remember this Y position to avoid duplicates
+      lastYPositions.push(yPos);
+      if (lastYPositions.length > 3) { // Only keep track of the 3 most recent
+        lastYPositions.shift();
+      }
+      
+      // Move to next level
       yPos += PLATFORM_VERTICAL_GAP;
     }
+    
     console.log("Initialized", this.platforms.length, "platforms");
   }
 
-  addPlatform(yPos: number, xOffset: number = 0) {
-    const width = MIN_PLATFORM_WIDTH + Math.random() * (MAX_PLATFORM_WIDTH - MIN_PLATFORM_WIDTH);
+  addPlatform(yPos: number, xOffset: number = 0): Platform {
+    // Restrict platform width to prevent excessively long platforms
+    // that might trap the player or make navigation difficult
+    const maxAllowedWidth = Math.min(MAX_PLATFORM_WIDTH, this.canvas.width * 0.6);
+    const width = MIN_PLATFORM_WIDTH + Math.random() * (maxAllowedWidth - MIN_PLATFORM_WIDTH);
     
     // Calculate x position with the offset, ensuring platforms stay on screen
     let xPos = Math.random() * (this.canvas.width - width);
@@ -131,26 +171,58 @@ export class GameEngine {
       xPos = Math.max(0, Math.min(this.canvas.width - width, xPos));
     }
     
-    // Check for overlapping platforms at the same y position and adjust if needed
-    const sameHeightPlatforms = this.platforms.filter(p => 
-      Math.abs(p.y - yPos) < PLATFORM_HEIGHT * 1.5
+    // Check for any platforms at exactly the same height and skip if found
+    const exactSameHeightPlatforms = this.platforms.filter(p => 
+      Math.abs(p.y - yPos) < 1
     );
     
-    if (sameHeightPlatforms.length > 0) {
+    if (exactSameHeightPlatforms.length > 0) {
+      // Shift height slightly to avoid exact same position
+      yPos += PLATFORM_HEIGHT * 1.2;
+    }
+    
+    // Check for platforms at similar heights that might overlap
+    const similarHeightPlatforms = this.platforms.filter(p => 
+      Math.abs(p.y - yPos) < PLATFORM_HEIGHT * 2
+    );
+    
+    if (similarHeightPlatforms.length > 0) {
       // Check if our new platform would overlap with any existing platform
-      const wouldOverlap = sameHeightPlatforms.some(p => {
-        // Check if the horizontal ranges overlap
-        const overlapLeft = xPos < (p.x + p.width) && xPos > p.x - width;
-        const overlapRight = (xPos + width) > p.x && (xPos + width) < (p.x + p.width + width);
-        return overlapLeft || overlapRight;
+      const wouldOverlap = similarHeightPlatforms.some(p => {
+        // More precise overlap detection
+        const overlapLeft = xPos <= (p.x + p.width) && xPos >= p.x;
+        const overlapRight = (xPos + width) >= p.x && (xPos + width) <= (p.x + p.width);
+        const containsLeft = xPos <= p.x && (xPos + width) >= p.x;
+        const containsRight = xPos <= (p.x + p.width) && (xPos + width) >= (p.x + p.width);
+        
+        return overlapLeft || overlapRight || containsLeft || containsRight;
       });
       
       if (wouldOverlap) {
-        // If would overlap, shift to the other side of the screen if possible
-        if (xPos < this.canvas.width / 2) {
-          xPos = this.canvas.width / 2 + Math.random() * (this.canvas.width / 2 - width);
-        } else {
-          xPos = Math.random() * (this.canvas.width / 2 - width);
+        // Try multiple positions to find a non-overlapping spot
+        let attempts = 5;
+        let foundSpace = false;
+        
+        while (attempts > 0 && !foundSpace) {
+          // Try different positions across the screen width
+          xPos = Math.random() * (this.canvas.width - width);
+          
+          // Check if this new position would still overlap
+          foundSpace = !similarHeightPlatforms.some(p => {
+            const overlapLeft = xPos <= (p.x + p.width) && xPos >= p.x;
+            const overlapRight = (xPos + width) >= p.x && (xPos + width) <= (p.x + p.width);
+            const containsLeft = xPos <= p.x && (xPos + width) >= p.x;
+            const containsRight = xPos <= (p.x + p.width) && (xPos + width) >= (p.x + p.width);
+            
+            return overlapLeft || overlapRight || containsLeft || containsRight;
+          });
+          
+          attempts--;
+        }
+        
+        // If still can't find space, shift the y position further down
+        if (!foundSpace) {
+          yPos += PLATFORM_VERTICAL_GAP * 0.4;
         }
         
         // Final bounds check
@@ -168,6 +240,7 @@ export class GameEngine {
     
     const platform = createPlatform(xPos, yPos, width, platformType);
     this.platforms.push(platform);
+    return platform;
   }
 
   getPlatformType(): PlatformType {
@@ -349,17 +422,21 @@ export class GameEngine {
     this.lastPlatformLanded = null;
 
     // Check for ceiling collision
-    if (this.character.y < CEILING_HEIGHT) {
-      // Only stop upward movement but don't push down
+    if (this.character.y <= CEILING_HEIGHT) {
+      // Only cancel upward velocity, don't force character down
       if (this.character.velocityY < 0) {
         this.character.velocityY = 0;
       }
       
-      // Keep character at ceiling but let them move horizontally
-      this.character.y = CEILING_HEIGHT;
+      // Don't forcibly set the Y position to ceiling height (that causes pushing)
+      // Just make sure they're not above it
+      if (this.character.y < CEILING_HEIGHT) {
+        this.character.y = CEILING_HEIGHT;
+      }
       
       // Apply damage when hitting the ceiling spikes
-      if (!this.character.isInvincible) {
+      // This needs to happen only on actual collision, not just being near
+      if (this.character.y === CEILING_HEIGHT && !this.character.isInvincible) {
         this.takeDamage();
       }
     }
