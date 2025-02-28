@@ -16,8 +16,8 @@ export const EYES_COLOR = '#212529';
 
 // Platform constants
 export const PLATFORM_HEIGHT = 10;
-export const MIN_PLATFORM_WIDTH = 70; // Slightly wider for easier landing
-export const MAX_PLATFORM_WIDTH = 160; 
+export const MIN_PLATFORM_WIDTH = 60; // Minimum platform width for a reasonable landing area
+export const MAX_PLATFORM_WIDTH = 120; // Reduced maximum width to prevent excessively long platforms 
 export const PLATFORM_VERTICAL_GAP = 90; // Slightly increased for easier navigation
 export const PLATFORM_HORIZONTAL_SPACING = 100;
 export const CEILING_HEIGHT = 30;

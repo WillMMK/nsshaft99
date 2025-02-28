@@ -159,7 +159,8 @@ export class GameEngine {
   addPlatform(yPos: number, xOffset: number = 0): Platform {
     // Restrict platform width to prevent excessively long platforms
     // that might trap the player or make navigation difficult
-    const maxAllowedWidth = Math.min(MAX_PLATFORM_WIDTH, this.canvas.width * 0.6);
+    // Use a much stricter maximum width to ensure platforms aren't too long
+    const maxAllowedWidth = Math.min(MAX_PLATFORM_WIDTH, this.canvas.width * 0.4);
     const width = MIN_PLATFORM_WIDTH + Math.random() * (maxAllowedWidth - MIN_PLATFORM_WIDTH);
     
     // Calculate x position with the offset, ensuring platforms stay on screen
@@ -421,22 +422,28 @@ export class GameEngine {
     let isOnPlatform = false;
     this.lastPlatformLanded = null;
 
-    // Check for ceiling collision
-    // Since spikes are now pointing down, we need to check if character's top edge touches them
+    // Ceiling collision handling
     if (this.character.y <= CEILING_HEIGHT) {
-      // Stop upward movement when hitting the ceiling
+      // If character tries to go above ceiling, stop upward movement
       if (this.character.velocityY < 0) {
         this.character.velocityY = 0;
       }
       
-      // Make sure player doesn't go above ceiling, but never push down
+      // Prevent character from going above ceiling - just stop them at the border
       if (this.character.y < CEILING_HEIGHT) {
         this.character.y = CEILING_HEIGHT;
-      }
-      
-      // Apply damage when hitting the ceiling (only if not invincible)
-      if (!this.character.isInvincible) {
-        this.takeDamage();
+        
+        // Apply instantaneous and deadly damage when hitting the ceiling
+        if (!this.character.isInvincible) {
+          // Kill the character instantly for touching ceiling
+          this.health = 0;  // Set health to 0 directly
+          this.onUpdateHealth(this.health);
+          playSound('hurt');
+          
+          // Trigger game over immediately
+          this.gameActive = false;
+          this.onGameOver();
+        }
       }
     }
     
@@ -446,17 +453,26 @@ export class GameEngine {
     const spikeIndex = Math.floor(this.character.x / spikeWidth);
     const spikeXCenter = spikeIndex * spikeWidth + spikeWidth / 2;
     
-    // Calculate a triangle hit area for each spike
-    const distanceFromSpikeCenter = Math.abs(this.character.x + this.character.width/2 - spikeXCenter);
-    const spikeReach = Math.max(0, SPIKE_HEIGHT - distanceFromSpikeCenter/2);
+    // Calculate a more precise triangle hit area for each spike
+    const charMidX = this.character.x + this.character.width/2;
+    const distanceFromSpikeCenter = Math.abs(charMidX - spikeXCenter);
+    const hitAreaWidth = spikeWidth * 0.8; // 80% of spike width for more forgiving hit detection
     
-    // If character is within spike reach, check for collision
+    // Character is touching a spike if they're below ceiling but close enough to a spike
     if (
-      this.character.y <= CEILING_HEIGHT + spikeReach && 
-      this.character.y > CEILING_HEIGHT &&
-      !this.character.isInvincible
+      this.character.y <= CEILING_HEIGHT + SPIKE_HEIGHT &&  // Within vertical range of spikes
+      this.character.y > CEILING_HEIGHT &&                  // Below the ceiling itself
+      distanceFromSpikeCenter < hitAreaWidth/2 &&          // Within horizontal hit range
+      !this.character.isInvincible                         // Not invincible
     ) {
-      this.takeDamage();
+      // Instant death for spike contact
+      this.health = 0;  // Set health to 0 directly
+      this.onUpdateHealth(this.health);
+      playSound('hurt');
+      
+      // Trigger game over immediately
+      this.gameActive = false;
+      this.onGameOver();
     }
 
     // Check platform collisions
