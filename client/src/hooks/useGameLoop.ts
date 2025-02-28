@@ -23,54 +23,53 @@ export default function useGameLoop({
   const gameEngineRef = useRef<GameEngine | null>(null);
   const animationFrameIdRef = useRef<number>(0);
   
-  // This function will be called from the key handlers
+  // This function will be called by the key handlers
   const updateMovement = useCallback((isMovingLeft: boolean, isMovingRight: boolean) => {
     if (gameEngineRef.current) {
+      console.log("Movement update called:", isMovingLeft, isMovingRight);
       gameEngineRef.current.updateMovement(isMovingLeft, isMovingRight);
     }
   }, []);
   
-  // Game loop with fixed time step for consistent physics
+  // Simple animation loop with fixed timestep
   const gameLoop = useCallback(() => {
-    if (!canvasRef.current || !gameEngineRef.current) return;
-    
-    // Use a fixed time step for more stable physics
-    const FIXED_DELTA = 16.67; // ~60fps
-    
-    // Update game state with fixed timestep
-    gameEngineRef.current.update(FIXED_DELTA);
+    if (gameEngineRef.current) {
+      // Update the game state (no delta time needed as we use fixed values now)
+      gameEngineRef.current.update();
+    }
     
     // Continue the loop
     animationFrameIdRef.current = requestAnimationFrame(gameLoop);
-  }, [canvasRef]);
+  }, []);
   
   // Initialize game engine and start game loop
   useEffect(() => {
     if (!canvasRef.current || !gameActive) return;
     
-    console.log("Initializing game engine");
+    console.log("Game loop initializing");
+    console.log("Canvas reference:", canvasRef.current);
     
-    // Initialize game engine
-    gameEngineRef.current = new GameEngine(
-      canvasRef.current,
-      (newHealth: number) => setHealth(newHealth),
-      (newScore: number) => setScore(newScore),
-      onGameOver
-    );
-    
-    // Immediately start game loop
-    animationFrameIdRef.current = requestAnimationFrame(gameLoop);
-    
-    // Log initial state for debugging
-    console.log("Game initialized", {
-      canvasWidth: canvasRef.current.width,
-      canvasHeight: canvasRef.current.height,
-      gameEngine: gameEngineRef.current
-    });
+    try {
+      // Initialize game engine with the canvas
+      gameEngineRef.current = new GameEngine(
+        canvasRef.current,
+        (newHealth: number) => setHealth(newHealth),
+        (newScore: number) => setScore(newScore),
+        onGameOver
+      );
+      
+      console.log("Game engine initialized");
+      
+      // Start the game loop
+      animationFrameIdRef.current = requestAnimationFrame(gameLoop);
+      console.log("Game loop started");
+    } catch (err) {
+      console.error("Error initializing game:", err);
+    }
     
     // Cleanup function
     return () => {
-      console.log("Cleaning up game engine");
+      console.log("Cleaning up game loop");
       cancelAnimationFrame(animationFrameIdRef.current);
       gameEngineRef.current = null;
     };

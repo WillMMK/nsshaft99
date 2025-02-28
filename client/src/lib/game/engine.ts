@@ -14,10 +14,7 @@ import {
   HEALTH_GAIN,
   DAMAGE_AMOUNT,
   SCORE_PER_PLATFORM,
-  SCORE_PER_DISTANCE,
-  DIFFICULTY_INCREASE_RATE,
-  SCROLL_SPEED_INITIAL,
-  SCROLL_SPEED_MAX
+  SCORE_PER_DISTANCE
 } from './constants';
 import { Platform, PlatformType, createPlatform, drawPlatform } from './platform';
 import { drawCharacter, Character } from './character';
@@ -32,8 +29,6 @@ export class GameEngine {
   score: number = 0;
   health: number = 100;
   gameActive: boolean = true;
-  difficulty: number = 0;
-  scrollSpeed: number = SCROLL_SPEED_INITIAL;
   
   // Character
   character: Character;
@@ -44,6 +39,11 @@ export class GameEngine {
   // Platforms
   platforms: Platform[] = [];
   totalDistanceTraveled: number = 0;
+  
+  // Constants for smooth gameplay
+  private MOVE_SPEED = 5;
+  private GRAVITY_FORCE = 0.5;
+  private SCROLL_SPEED = 2;
   
   // UI and callbacks
   onUpdateHealth: (health: number) => void;
@@ -62,10 +62,12 @@ export class GameEngine {
     this.onUpdateScore = onUpdateScore;
     this.onGameOver = onGameOver;
     
+    console.log("Canvas dimensions:", canvas.width, canvas.height);
+    
     // Initialize character in the middle of the screen
     this.character = {
       x: canvas.width / 2 - CHARACTER_SIZE / 2,
-      y: canvas.height / 3,
+      y: canvas.height / 2 - CHARACTER_SIZE,
       width: CHARACTER_SIZE,
       height: CHARACTER_SIZE,
       velocityY: 0,
@@ -73,6 +75,8 @@ export class GameEngine {
       isJumping: false,
       facingDirection: 1 // 1 for right, -1 for left
     };
+    
+    console.log("Character initialized at:", this.character.x, this.character.y);
     
     // Initialize platforms
     this.initializePlatforms();
@@ -85,7 +89,6 @@ export class GameEngine {
     
     // Reset game state
     this.totalDistanceTraveled = 0;
-    this.scrollSpeed = SCROLL_SPEED_INITIAL;
     this.gameActive = true;
   }
   
@@ -94,21 +97,28 @@ export class GameEngine {
     this.platforms = [];
     
     // Add a platform directly under the player to start
+    const startX = this.canvas.width / 2 - 50;
+    const startY = this.canvas.height / 2 + CHARACTER_SIZE;
+    
+    console.log("Adding start platform at:", startX, startY);
+    
     const startPlatform = createPlatform(
-      this.canvas.width / 2 - 50,
-      this.canvas.height / 2,
+      startX,
+      startY,
       100,
       PlatformType.NORMAL
     );
     this.platforms.push(startPlatform);
     
     // Add more platforms below
-    let yPos = this.canvas.height / 2 + PLATFORM_VERTICAL_GAP;
+    let yPos = startY + PLATFORM_VERTICAL_GAP;
     
     while (yPos < this.canvas.height + 200) {
       this.addPlatform(yPos);
       yPos += PLATFORM_VERTICAL_GAP;
     }
+    
+    console.log("Initialized", this.platforms.length, "platforms");
   }
   
   // Generate a new platform at the specified y position
@@ -125,28 +135,19 @@ export class GameEngine {
   
   // Get a platform type based on current probabilities
   getPlatformType(): PlatformType {
-    // As the game progresses, adjust probabilities to make it harder
-    const probs = { ...INITIAL_PROBABILITIES };
-    
-    // Increase difficulty over time
-    if (this.difficulty > 0.2) {
-      probs.NORMAL -= Math.min(0.3, this.difficulty * 0.5);
-      probs.SPIKE += Math.min(0.15, this.difficulty * 0.2);
-      probs.COLLAPSING += Math.min(0.15, this.difficulty * 0.2);
-    }
-    
+    // For simplicity, mostly generate normal platforms
     const rand = Math.random();
-    let cumulative = 0;
     
-    if ((cumulative += probs.NORMAL) > rand) return PlatformType.NORMAL;
-    if ((cumulative += probs.SPIKE) > rand) return PlatformType.SPIKE;
-    if ((cumulative += probs.COLLAPSING) > rand) return PlatformType.COLLAPSING;
-    if ((cumulative += probs.CONVEYOR) > rand) return PlatformType.CONVEYOR;
+    if (rand < 0.7) return PlatformType.NORMAL;
+    if (rand < 0.8) return PlatformType.SPIKE;
+    if (rand < 0.9) return PlatformType.COLLAPSING;
+    if (rand < 0.95) return PlatformType.CONVEYOR;
     return PlatformType.SPRING;
   }
   
   // Update character movement direction
   updateMovement(isMovingLeft: boolean, isMovingRight: boolean) {
+    console.log("Movement updated:", isMovingLeft, isMovingRight);
     this.isMovingLeft = isMovingLeft;
     this.isMovingRight = isMovingRight;
     
@@ -159,18 +160,14 @@ export class GameEngine {
   }
   
   // Main update loop
-  update(deltaTime: number) {
+  update() {
     if (!this.gameActive) return;
     
-    // Increase difficulty over time
-    this.difficulty += DIFFICULTY_INCREASE_RATE * deltaTime;
-    this.scrollSpeed = Math.min(SCROLL_SPEED_MAX, SCROLL_SPEED_INITIAL + this.difficulty);
-    
     // Update character position
-    this.updateCharacter(deltaTime);
+    this.updateCharacter();
     
     // Update platforms
-    this.updatePlatforms(deltaTime);
+    this.updatePlatforms();
     
     // Check for collisions
     this.checkCollisions();
@@ -183,22 +180,24 @@ export class GameEngine {
   }
   
   // Update character position and apply physics
-  updateCharacter(deltaTime: number) {
+  updateCharacter() {
     // Handle horizontal movement with fixed speeds
     if (this.isMovingLeft && !this.isMovingRight) {
-      this.character.x -= 5; // Fixed speed, no need for CHARACTER_SPEED
-      this.character.facingDirection = -1;
-    } else if (this.isMovingRight && !this.isMovingLeft) {
-      this.character.x += 5; // Fixed speed, no need for CHARACTER_SPEED
-      this.character.facingDirection = 1;
+      this.character.x -= this.MOVE_SPEED;
+      console.log("Moving LEFT", this.character.x);
+    } 
+    
+    if (this.isMovingRight && !this.isMovingLeft) {
+      this.character.x += this.MOVE_SPEED;
+      console.log("Moving RIGHT", this.character.x);
     }
     
     // Apply gravity - constant acceleration downward
-    this.character.velocityY += 0.5; // Fixed gravity value
+    this.character.velocityY += this.GRAVITY_FORCE;
     
     // Terminal velocity cap to prevent falling too fast
-    if (this.character.velocityY > 10) { // Fixed terminal velocity
-      this.character.velocityY = 10;
+    if (this.character.velocityY > TERMINAL_VELOCITY) {
+      this.character.velocityY = TERMINAL_VELOCITY;
     }
     
     // Update vertical position based on velocity
@@ -219,22 +218,19 @@ export class GameEngine {
   }
   
   // Update platforms (scrolling, removing, adding new ones)
-  updatePlatforms(deltaTime: number) {
-    // Set a larger scroll amount for more noticeable movement
-    const scrollAmount = 2; // Fixed scroll speed
-    
+  updatePlatforms() {
     // Move all platforms up (simulating player falling down)
     for (const platform of this.platforms) {
-      platform.y -= scrollAmount; // Move platforms upward with fixed speed
+      platform.y -= this.SCROLL_SPEED;
       
       // If platform has a timer (like collapsing platforms), update it
       if (platform.timer !== undefined) {
-        platform.timer -= deltaTime;
+        platform.timer -= 16; // Assuming ~60fps (16ms per frame)
       }
     }
     
-    // Track distance for scoring with fixed increments
-    this.totalDistanceTraveled += scrollAmount;
+    // Track distance for scoring
+    this.totalDistanceTraveled += this.SCROLL_SPEED;
     this.score = Math.floor(this.totalDistanceTraveled * SCORE_PER_DISTANCE);
     this.onUpdateScore(this.score);
     
@@ -388,6 +384,13 @@ export class GameEngine {
     
     // Draw character
     drawCharacter(ctx, this.character);
+    
+    // Debug info - draw character position
+    ctx.fillStyle = 'white';
+    ctx.font = '10px Arial';
+    ctx.fillText(`Char: (${Math.round(this.character.x)}, ${Math.round(this.character.y)})`, 10, 60);
+    ctx.fillText(`Moving: ${this.isMovingLeft ? 'LEFT' : ''}${this.isMovingRight ? 'RIGHT' : ''}`, 10, 80);
+    ctx.fillText(`Platforms: ${this.platforms.length}`, 10, 100);
   }
   
   // Draw ceiling with spikes
