@@ -54,9 +54,10 @@ export class GameEngine {
 
     console.log("Canvas dimensions:", canvas.width, canvas.height);
 
+    // Position character slightly above the start platform at 60% canvas height
     this.character = {
       x: canvas.width / 2 - CHARACTER_SIZE / 2,
-      y: canvas.height / 2 - CHARACTER_SIZE,
+      y: canvas.height * 0.6 - CHARACTER_SIZE - 5, // 5px above platform
       width: CHARACTER_SIZE,
       height: CHARACTER_SIZE,
       velocityY: 0,
@@ -78,14 +79,21 @@ export class GameEngine {
 
   initializePlatforms() {
     this.platforms = [];
+    
+    // Place the start platform at 60% of canvas height for better positioning
     const startX = this.canvas.width / 2 - 50;
-    const startY = this.canvas.height / 2 + CHARACTER_SIZE;
+    const startY = this.canvas.height * 0.6;
     console.log("Adding start platform at:", startX, startY);
+    
+    // Create a wider platform for the starting position to make it easier
     const startPlatform = createPlatform(startX, startY, 100, PlatformType.NORMAL);
     this.platforms.push(startPlatform);
 
+    // Generate additional platforms with appropriate spacing
     let yPos = startY + PLATFORM_VERTICAL_GAP;
-    while (yPos < this.canvas.height + 200) {
+    
+    // Make sure we generate enough platforms below the bottom of the screen
+    while (yPos < this.canvas.height + 300) {
       this.addPlatform(yPos);
       yPos += PLATFORM_VERTICAL_GAP;
     }
@@ -101,12 +109,34 @@ export class GameEngine {
   }
 
   getPlatformType(): PlatformType {
+    // More balanced platform type distribution with more normal platforms at the start
+    // This is more forgiving for new players
     const rand = Math.random();
-    if (rand < 0.7) return PlatformType.NORMAL;
-    if (rand < 0.8) return PlatformType.SPIKE;
-    if (rand < 0.9) return PlatformType.COLLAPSING;
-    if (rand < 0.95) return PlatformType.CONVEYOR;
-    return PlatformType.SPRING;
+    const score = this.score;
+    
+    // As score increases, make game harder by spawning more special platforms
+    if (score < 100) {
+      // Early game: mostly normal platforms
+      if (rand < 0.85) return PlatformType.NORMAL;
+      if (rand < 0.9) return PlatformType.SPRING;
+      if (rand < 0.95) return PlatformType.CONVEYOR;
+      if (rand < 0.98) return PlatformType.COLLAPSING;
+      return PlatformType.SPIKE;
+    } else if (score < 500) {
+      // Mid game: increased difficulty
+      if (rand < 0.7) return PlatformType.NORMAL;
+      if (rand < 0.8) return PlatformType.CONVEYOR;
+      if (rand < 0.9) return PlatformType.SPRING;
+      if (rand < 0.95) return PlatformType.COLLAPSING;
+      return PlatformType.SPIKE;
+    } else {
+      // Late game: challenging
+      if (rand < 0.5) return PlatformType.NORMAL;
+      if (rand < 0.65) return PlatformType.CONVEYOR;
+      if (rand < 0.8) return PlatformType.COLLAPSING;
+      if (rand < 0.9) return PlatformType.SPIKE;
+      return PlatformType.SPRING;
+    }
   }
 
   updateMovement(isMovingLeft: boolean, isMovingRight: boolean) {
@@ -130,11 +160,16 @@ export class GameEngine {
   }
 
   updateCamera() {
-    // Instantly follow character for testing (adjust to smooth later if needed)
-    this.cameraY = this.character.y - this.canvas.height / 3;
-    // For smooth movement, uncomment: 
-    // const targetCameraY = this.character.y - this.canvas.height / 3;
-    // this.cameraY += (targetCameraY - this.cameraY) * 0.2;
+    // Use smooth camera following for better gameplay experience
+    const targetCameraY = this.character.y - this.canvas.height / 3;
+    
+    // Smoothly interpolate camera position (lerp)
+    this.cameraY += (targetCameraY - this.cameraY) * 0.1;
+    
+    // Ensure camera doesn't go below zero (prevents seeing above ceiling)
+    if (this.cameraY < 0) {
+      this.cameraY = 0;
+    }
   }
 
   updateCharacter() {
@@ -180,6 +215,7 @@ export class GameEngine {
     this.score = Math.floor(this.totalDistanceTraveled * SCORE_PER_DISTANCE);
     this.onUpdateScore(this.score);
 
+    // Remove platforms that are off the top of the screen
     this.platforms = this.platforms.filter(platform => platform.y + PLATFORM_HEIGHT > 0);
 
     if (this.platforms.length > 0) {
@@ -187,12 +223,16 @@ export class GameEngine {
         (lowest, current) => current.y > lowest.y ? current : lowest, 
         this.platforms[0]
       );
-      if (lowestPlatform.y < this.canvas.height + 100) {
+      
+      // Generate platforms when the lowest is less than 80% of canvas height
+      // This ensures platforms are generated lower on the screen
+      if (lowestPlatform.y < this.canvas.height * 0.8) {
         const newY = lowestPlatform.y + PLATFORM_VERTICAL_GAP;
         this.addPlatform(newY);
       }
     } else {
-      this.addPlatform(this.canvas.height - 50);
+      // If no platforms exist, create one at 80% of canvas height
+      this.addPlatform(this.canvas.height * 0.8);
     }
   }
 
