@@ -426,8 +426,10 @@ export class GameEngine {
     let isOnPlatform = false;
     this.lastPlatformLanded = null;
 
-    // Ceiling moves with camera, so we need to use cameraY for collision detection
-    const ceilingYPos = this.cameraY;
+    // Get ceiling position that's pursuing the player (same calculation as in drawCeiling)
+    const targetCeilingDistance = 180; // Distance to maintain above player
+    const pursuingCeilingY = Math.max(0, this.character.y - targetCeilingDistance);
+    const ceilingYPos = Math.min(this.cameraY, pursuingCeilingY);
     const ceilingBottomY = ceilingYPos + CEILING_HEIGHT;
     
     // Ceiling collision handling - ceiling follows the character with the camera
@@ -466,8 +468,8 @@ export class GameEngine {
     const distanceFromSpikeCenter = Math.abs(charMidX - spikeXCenter);
     const hitAreaWidth = spikeWidth; // Full spike width for more challenging gameplay
     
-    // Calculate spike tip position (50% larger than before)
-    const spikeLength = SPIKE_HEIGHT * 1.5;
+    // Calculate spike tip position (doubled size to match visual spikes)
+    const spikeLength = SPIKE_HEIGHT * 2;
     
     // Character is touching a spike if they're below ceiling but close enough to a spike
     if (
@@ -603,8 +605,14 @@ export class GameEngine {
   drawCeiling() {
     const ctx = this.ctx;
     
-    // The ceiling should move with the camera to always be visible
-    const ceilingY = this.cameraY;
+    // Make ceiling pursue the player - keep it a fixed distance above the player
+    // This ensures player can't escape it, adding constant pressure
+    const targetCeilingDistance = 180; // Distance to maintain above player
+    const pursuingCeilingY = Math.max(0, this.character.y - targetCeilingDistance);
+    
+    // Apply the ceiling position - either camera-based or actively pursuing
+    // Choose the lower ceiling position to be more aggressive (closer to player)
+    const ceilingY = Math.min(this.cameraY, pursuingCeilingY);
     
     // Draw ceiling background
     ctx.fillStyle = '#212529';
@@ -617,10 +625,10 @@ export class GameEngine {
     for (let i = 0; i < CEILING_SPIKE_COUNT; i++) {
       const x = i * spikeWidth;
       
-      // Draw larger triangle spikes for more challenge
+      // Draw even larger triangle spikes for more challenge
       ctx.beginPath();
       ctx.moveTo(x, ceilingY + CEILING_HEIGHT); // Left corner
-      ctx.lineTo(x + spikeWidth / 2, ceilingY + CEILING_HEIGHT + SPIKE_HEIGHT * 1.5); // Bottom tip (50% larger)
+      ctx.lineTo(x + spikeWidth / 2, ceilingY + CEILING_HEIGHT + SPIKE_HEIGHT * 2); // Bottom tip (doubled size)
       ctx.lineTo(x + spikeWidth, ceilingY + CEILING_HEIGHT); // Right corner
       ctx.closePath();
       ctx.fill();
@@ -628,10 +636,20 @@ export class GameEngine {
       // Add highlight/shadow effect to spikes for better visibility
       ctx.beginPath();
       ctx.moveTo(x, ceilingY + CEILING_HEIGHT);
-      ctx.lineTo(x + spikeWidth / 2, ceilingY + CEILING_HEIGHT + SPIKE_HEIGHT * 1.5);
+      ctx.lineTo(x + spikeWidth / 2, ceilingY + CEILING_HEIGHT + SPIKE_HEIGHT * 2);
       ctx.strokeStyle = '#FF8080'; // Lighter red for highlight
-      ctx.lineWidth = 1;
+      ctx.lineWidth = 1.5; // Slightly thicker line
       ctx.stroke();
+      
+      // Add a pulsing glow effect to make spikes more threatening
+      const glowIntensity = (Math.sin(Date.now() / 200) + 1) / 2; // Pulsing value between 0 and 1
+      ctx.beginPath();
+      ctx.moveTo(x, ceilingY + CEILING_HEIGHT);
+      ctx.lineTo(x + spikeWidth / 2, ceilingY + CEILING_HEIGHT + SPIKE_HEIGHT * 2);
+      ctx.lineTo(x + spikeWidth, ceilingY + CEILING_HEIGHT);
+      ctx.closePath();
+      ctx.fillStyle = `rgba(255, 50, 50, ${glowIntensity * 0.3})`; // Semi-transparent red with pulsing alpha
+      ctx.fill();
     }
   }
 }

@@ -47,8 +47,8 @@ export const SCORE_PER_DISTANCE = 1;
 
 // Game progression
 export const DIFFICULTY_INCREASE_RATE = 0.0001; // How fast the game gets harder
-export const SCROLL_SPEED_INITIAL = 1;
-export const SCROLL_SPEED_MAX = 3;
+export const SCROLL_SPEED_INITIAL = 1.5; // Faster initial scrolling
+export const SCROLL_SPEED_MAX = 3.5;  // Higher maximum scroll speed
 
 // Canvas settings
 export const CEILING_SPIKE_COUNT = 10;
