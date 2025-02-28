@@ -36,10 +36,9 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
     onGameOver
   });
 
-  // Handle keyboard controls with direct event listeners
   useEffect(() => {
     console.log("Setting up keyboard controls");
-    
+
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'ArrowLeft') {
         movingLeft.current = true;
@@ -64,7 +63,6 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
       }
     };
 
-    // Add event listeners
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
 
@@ -74,29 +72,19 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
     };
   }, [updateMovement]);
 
-  // Ensure canvas is properly initialized
   useEffect(() => {
     const ensureCanvasIsReady = () => {
       if (canvasRef.current) {
-        // Check if canvas dimensions are set
         if (!canvasRef.current.width || !canvasRef.current.height) {
-          // Set dimensions to match the attributes we added
           canvasRef.current.width = 273;
           canvasRef.current.height = 492;
         }
         console.log("Canvas dimensions confirmed:", canvasRef.current.width, canvasRef.current.height);
       }
     };
-
-    // Initial setup
     ensureCanvasIsReady();
-    
-    // We don't need to resize the canvas on window resize as it would affect gameplay
-    // The CSS will handle scaling the canvas visually
-    
   }, [canvasRef]);
 
-  // Mobile control handlers
   const handleMoveLeft = () => {
     movingLeft.current = true;
     updateMovement(true, movingRight.current);
@@ -123,7 +111,6 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
 
   return (
     <div ref={containerRef} className="absolute inset-0">
-      {/* Game UI */}
       <div className="absolute top-0 left-0 w-full p-2 flex justify-between items-center z-10 bg-black bg-opacity-70">
         <HealthBar health={health} />
         <div className="font-mono text-yellow-400 text-lg">
@@ -132,7 +119,6 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
         </div>
       </div>
 
-      {/* Debug info */}
       <div className="absolute top-16 left-2 text-white text-xs z-10 bg-black bg-opacity-50 p-1 rounded">
         <div>Controls: Arrow Keys</div>
         <div>Movement: {movingLeft.current ? 'LEFT ' : ''}{movingRight.current ? 'RIGHT' : ''}</div>
@@ -141,7 +127,6 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
         <div>Game Active: {gameActive ? 'YES' : 'NO'}</div>
       </div>
 
-      {/* Canvas for the game */}
       <canvas 
         ref={canvasRef} 
         width="273" 
@@ -149,7 +134,6 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
         className="absolute top-0 left-0 w-full h-full"
       />
 
-      {/* Mobile controls */}
       <MobileControls 
         onMoveLeft={handleMoveLeft}
         onStopMoveLeft={handleStopMoveLeft}
