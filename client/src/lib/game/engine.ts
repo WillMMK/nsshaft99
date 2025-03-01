@@ -15,7 +15,11 @@ import {
   DAMAGE_AMOUNT,
   SCORE_PER_PLATFORM,
   SCORE_PER_DISTANCE,
-  INVINCIBILITY_DURATION
+  INVINCIBILITY_DURATION,
+  BASE_SCROLL_SPEED,
+  SCROLL_SPEED_INCREMENT,
+  MAX_SCROLL_SPEED,
+  SCORE_PER_INCREMENT
 } from './constants';
 import { Platform, PlatformType, createPlatform, drawPlatform } from './platform';
 import { drawCharacter, Character } from './character';
@@ -54,9 +58,9 @@ export class GameEngine {
     this.onGameOver = onGameOver;
 
     // Increase difficulty parameters
-    this.MOVE_SPEED = 5.5;      // Faster horizontal movement (was 5)
-    this.GRAVITY_FORCE = 0.6;   // Stronger gravity (was 0.5)
-    this.SCROLL_SPEED = 2.5;    // Faster screen scrolling (was 2)
+    this.MOVE_SPEED = 5.5;              // Faster horizontal movement (was 5)
+    this.GRAVITY_FORCE = 0.6;           // Stronger gravity (was 0.5)
+    this.SCROLL_SPEED = BASE_SCROLL_SPEED;  // Initialize with base scroll speed
 
     console.log("Canvas dimensions:", canvas.width, canvas.height);
 
@@ -129,10 +133,15 @@ export class GameEngine {
   }
 
   addPlatform(yPos: number, xOffset: number = 0): Platform {
-    // Restrict platform width to prevent excessively long platforms
-    // that might trap the player or make navigation difficult
-    // Use a much stricter maximum width to ensure platforms aren't too long
-    const maxAllowedWidth = Math.min(MAX_PLATFORM_WIDTH, this.canvas.width * 0.4);
+    // Reduce max width as score increases, as specified in requirements
+    // Implement the formula: Math.max(MIN_PLATFORM_WIDTH, MAX_PLATFORM_WIDTH - (this.score / 100))
+    const platformWidthReduction = Math.min(MAX_PLATFORM_WIDTH - MIN_PLATFORM_WIDTH, this.score / 100);
+    const maxAllowedWidth = Math.max(
+      MIN_PLATFORM_WIDTH,
+      MAX_PLATFORM_WIDTH - platformWidthReduction
+    );
+    
+    // Calculate width between min and max allowed (which now decreases with score)
     const width = MIN_PLATFORM_WIDTH + Math.random() * (maxAllowedWidth - MIN_PLATFORM_WIDTH);
     
     // Calculate x position with the offset, ensuring platforms stay on screen
@@ -217,32 +226,30 @@ export class GameEngine {
   }
 
   getPlatformType(): PlatformType {
-    // More challenging platform type distribution
+    // Implementing the exact platform type distribution from requirements
     const rand = Math.random();
     const score = this.score;
     
-    // As score increases, make game harder by spawning more special platforms
-    if (score < 100) {
-      // Early game: still moderately challenging
-      if (rand < 0.7) return PlatformType.NORMAL;  // Reduced normal platforms
+    if (score < 200) {
+      // Early game: mostly safe platforms
+      if (rand < 0.7) return PlatformType.NORMAL;
       if (rand < 0.8) return PlatformType.SPRING;
       if (rand < 0.9) return PlatformType.CONVEYOR;
-      if (rand < 0.95) return PlatformType.COLLAPSING;
-      return PlatformType.SPIKE;
-    } else if (score < 400) {  // Reduced the mid-game threshold for faster progression
-      // Mid game: more hazards
-      if (rand < 0.55) return PlatformType.NORMAL;  // Less than half are normal platforms
-      if (rand < 0.7) return PlatformType.CONVEYOR;
-      if (rand < 0.8) return PlatformType.SPRING;
+      return PlatformType.COLLAPSING;
+    } else if (score < 500) {
+      // Mid game: introduce some hazards
+      if (rand < 0.5) return PlatformType.NORMAL;
+      if (rand < 0.65) return PlatformType.SPRING;
+      if (rand < 0.8) return PlatformType.CONVEYOR;
       if (rand < 0.9) return PlatformType.COLLAPSING;
       return PlatformType.SPIKE;
     } else {
-      // Late game: very challenging
-      if (rand < 0.4) return PlatformType.NORMAL;  // Only 40% normal platforms
-      if (rand < 0.55) return PlatformType.CONVEYOR;
-      if (rand < 0.7) return PlatformType.COLLAPSING;
-      if (rand < 0.85) return PlatformType.SPIKE; // More spikes
-      return PlatformType.SPRING;
+      // Late game: high risk
+      if (rand < 0.3) return PlatformType.NORMAL;
+      if (rand < 0.45) return PlatformType.SPRING;
+      if (rand < 0.6) return PlatformType.CONVEYOR;
+      if (rand < 0.8) return PlatformType.COLLAPSING;
+      return PlatformType.SPIKE;
     }
   }
 
@@ -271,7 +278,8 @@ export class GameEngine {
     const targetCameraY = this.character.y - this.canvas.height / 3;
     
     // Smoothly interpolate camera position (lerp)
-    this.cameraY += (targetCameraY - this.cameraY) * 0.1;
+    //this.cameraY += (targetCameraY - this.cameraY) * 0.1;
+    this.cameraY -= this.SCROLL_SPEED;
     
     // Ensure camera doesn't go below zero (prevents seeing above ceiling)
     if (this.cameraY < 0) {
@@ -317,7 +325,23 @@ export class GameEngine {
   }
 
   updatePlatforms() {
-    // Move all platforms upward at the scroll speed
+    // Adjust scroll speed based on score - follows exactly what's in the requirements
+    const increments = Math.floor(this.score / SCORE_PER_INCREMENT);
+    const previousScrollSpeed = this.SCROLL_SPEED;
+    
+    // Calculate new scroll speed based on score milestones
+    this.SCROLL_SPEED = Math.min(
+      BASE_SCROLL_SPEED + increments * SCROLL_SPEED_INCREMENT,
+      MAX_SCROLL_SPEED
+    );
+    
+    // Notify player if scroll speed increased
+    if (this.score > 0 && this.score % SCORE_PER_INCREMENT === 0 && this.SCROLL_SPEED > previousScrollSpeed) {
+      console.log(`Scroll Speed Increased to ${this.SCROLL_SPEED.toFixed(1)}!`);
+      // We could add toast notifications here as mentioned in requirements
+    }
+    
+    // Move all platforms upward at the current scroll speed
     for (const platform of this.platforms) {
       platform.y -= this.SCROLL_SPEED;
       if (platform.timer !== undefined) {
@@ -514,6 +538,10 @@ export class GameEngine {
       this.onGameOver();
     }
     if (this.health <= 0) {
+      this.gameActive = false;
+      this.onGameOver();
+    }
+    if (this.character.y > this.cameraY + this.canvas.height) {
       this.gameActive = false;
       this.onGameOver();
     }
