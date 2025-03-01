@@ -82,7 +82,9 @@ export class GameEngine {
       isJumping: false,
       facingDirection: 1,
       isInvincible: false,
-      invincibleUntil: 0
+      invincibleUntil: 0,
+      isSlowFall: false,
+      slowFallUntil: 0
     };
 
     console.log("Character initialized at:", this.character.x, this.character.y);
@@ -306,9 +308,22 @@ export class GameEngine {
 
     // Apply gravity and update position
     this.character.velocityY += this.GRAVITY_FORCE;
-    if (this.character.velocityY > TERMINAL_VELOCITY) {
-      this.character.velocityY = TERMINAL_VELOCITY;
+    
+    // Apply slow fall effect if active
+    if (this.character.isSlowFall && this.character.velocityY > 0) {
+      // Apply slow fall factor to downward movement only
+      this.character.velocityY *= SLOW_FALL_FACTOR;
     }
+    
+    // Apply terminal velocity
+    if (this.character.velocityY > TERMINAL_VELOCITY) {
+      // If slow fall is active, reduce terminal velocity
+      const effectiveTerminalVelocity = this.character.isSlowFall ? 
+        TERMINAL_VELOCITY * SLOW_FALL_FACTOR : TERMINAL_VELOCITY;
+      
+      this.character.velocityY = effectiveTerminalVelocity;
+    }
+    
     this.character.y += this.character.velocityY;
 
     // Handle screen bounds
@@ -324,10 +339,21 @@ export class GameEngine {
       this.character.x += conveyorDirection * 2.0;
     }
     
-    // Update invincibility status
+    // Update power-up statuses
+    
+    // Update invincibility
     if (this.character.isInvincible) {
       if (Date.now() > this.character.invincibleUntil!) {
         this.character.isInvincible = false;
+        console.log("Invincibility expired!");
+      }
+    }
+    
+    // Update slow fall
+    if (this.character.isSlowFall) {
+      if (Date.now() > this.character.slowFallUntil!) {
+        this.character.isSlowFall = false;
+        console.log("Slow Fall expired!");
       }
     }
   }
@@ -425,9 +451,64 @@ export class GameEngine {
     }
   }
 
+  // Check for collisions with power-ups
+  checkPowerUpCollisions() {
+    // Loop through all platforms with active power-ups
+    for (const platform of this.platforms) {
+      if (!platform.powerUp || !platform.powerUp.active) continue;
+      
+      const powerUp = platform.powerUp;
+      
+      // Check if character is colliding with power-up
+      const collidesX = this.character.x + this.character.width > powerUp.x && 
+                     this.character.x < powerUp.x + powerUp.width;
+      const collidesY = this.character.y + this.character.height > powerUp.y - 15 && 
+                     this.character.y < powerUp.y + powerUp.height - 15;
+      
+      if (collidesX && collidesY) {
+        // Character collected the power-up
+        platform.powerUp.active = false;
+        
+        // Apply power-up effect based on its type
+        switch (powerUp.type) {
+          case PowerUpType.INVINCIBILITY:
+            // Activate invincibility
+            this.character.isInvincible = true;
+            this.character.invincibleUntil = Date.now() + INVINCIBILITY_POWER_UP_DURATION;
+            console.log("Power-up activated: Invincibility!");
+            // Play sound effect
+            playSound('jump'); // Reusing existing sound for now
+            break;
+            
+          case PowerUpType.SLOW_FALL:
+            // Activate slow fall
+            this.character.isSlowFall = true;
+            this.character.slowFallUntil = Date.now() + SLOW_FALL_POWER_UP_DURATION;
+            console.log("Power-up activated: Slow Fall!");
+            // Play sound effect
+            playSound('jump'); // Reusing existing sound for now
+            break;
+            
+          case PowerUpType.HEALTH_BOOST:
+            // Add health
+            const healthToAdd = HEALTH_BOOST_AMOUNT;
+            this.health = Math.min(100, this.health + healthToAdd);
+            this.onUpdateHealth(this.health);
+            console.log(`Power-up activated: Health Boost! +${healthToAdd} health.`);
+            // Play sound effect
+            playSound('jump'); // Reusing existing sound for now
+            break;
+        }
+      }
+    }
+  }
+
   checkCollisions() {
     let isOnPlatform = false;
     this.lastPlatformLanded = null;
+    
+    // Check for power-up collisions
+    this.checkPowerUpCollisions();
 
     // Get ceiling position that's pursuing the player (same calculation as in drawCeiling)
     const targetCeilingDistance = 180; // Distance to maintain above player
@@ -600,6 +681,10 @@ export class GameEngine {
 
     ctx.restore();
 
+    // Draw active power-up indicators at the top of the screen
+    this.drawPowerUpIndicators(ctx);
+
+    // Debug info
     ctx.fillStyle = 'white';
     ctx.font = '10px Arial';
     ctx.fillText(`Char: (${Math.round(this.character.x)}, ${Math.round(this.character.y)})`, 10, 60);
@@ -607,6 +692,101 @@ export class GameEngine {
     ctx.fillText(`Moving: ${this.isMovingLeft ? 'LEFT' : ''}${this.isMovingRight ? 'RIGHT' : ''}`, 10, 80);
     ctx.fillText(`Platforms: ${this.platforms.length}`, 10, 90); // Adjusted position
     ctx.fillText(`Score: ${this.score}`, 10, 100); // Added score display
+  }
+  
+  // Draw indicator icons for active power-ups
+  drawPowerUpIndicators(ctx: CanvasRenderingContext2D) {
+    const iconSize = 22;
+    const padding = 5;
+    let xPos = 10;
+    const yPos = 30;
+    
+    // Draw invincibility indicator
+    if (this.character.isInvincible) {
+      // Draw invincibility icon
+      const timeRemaining = Math.max(0, this.character.invincibleUntil! - Date.now()) / 1000;
+      
+      // Gold star for invincibility
+      ctx.fillStyle = 'gold';
+      ctx.beginPath();
+      ctx.arc(xPos + iconSize/2, yPos, iconSize/2, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Draw star shape 
+      ctx.fillStyle = 'white';
+      const starSize = iconSize * 0.4;
+      const starX = xPos + iconSize/2;
+      const starY = yPos;
+      
+      // Draw a star shape manually
+      const spikes = 5;
+      const outerRadius = starSize;
+      const innerRadius = starSize/2;
+      let rot = Math.PI / 2 * 3;
+      let step = Math.PI / spikes;
+      
+      ctx.beginPath();
+      ctx.moveTo(starX, starY - outerRadius);
+      
+      for (let i = 0; i < spikes; i++) {
+        ctx.lineTo(
+          starX + Math.cos(rot) * outerRadius,
+          starY + Math.sin(rot) * outerRadius
+        );
+        rot += step;
+        
+        ctx.lineTo(
+          starX + Math.cos(rot) * innerRadius,
+          starY + Math.sin(rot) * innerRadius
+        );
+        rot += step;
+      }
+      
+      ctx.lineTo(starX, starY - outerRadius);
+      ctx.closePath();
+      ctx.fill();
+      
+      // Draw timer text
+      ctx.fillStyle = 'white';
+      ctx.font = '10px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText(timeRemaining.toFixed(1) + 's', xPos + iconSize/2, yPos + iconSize/2 + 12);
+      
+      xPos += iconSize + padding;
+    }
+    
+    // Draw slow fall indicator
+    if (this.character.isSlowFall) {
+      // Draw slow fall icon
+      const timeRemaining = Math.max(0, this.character.slowFallUntil! - Date.now()) / 1000;
+      
+      // Blue circle for slow fall
+      ctx.fillStyle = 'royalblue';
+      ctx.beginPath();
+      ctx.arc(xPos + iconSize/2, yPos, iconSize/2, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Draw down arrow
+      ctx.fillStyle = 'white';
+      ctx.beginPath();
+      ctx.moveTo(xPos + iconSize/2, yPos - iconSize/4);
+      ctx.lineTo(xPos + iconSize/2 + iconSize/4, yPos - iconSize/4);
+      ctx.lineTo(xPos + iconSize/2, yPos + iconSize/4);
+      ctx.lineTo(xPos + iconSize/2 - iconSize/4, yPos - iconSize/4);
+      ctx.closePath();
+      ctx.fill();
+      
+      // Draw timer text
+      ctx.fillStyle = 'white';
+      ctx.font = '10px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText(timeRemaining.toFixed(1) + 's', xPos + iconSize/2, yPos + iconSize/2 + 12);
+      
+      xPos += iconSize + padding;
+    }
+    
+    // Reset text alignment for other text in the game
+    ctx.textAlign = 'left';
   }
 
   drawCeiling() {

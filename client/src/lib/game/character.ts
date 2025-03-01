@@ -100,7 +100,7 @@ export function drawCharacter(ctx: CanvasRenderingContext2D, character: Characte
     const pulseRate = 300; // ms
     const pulseAmount = Math.sin(Date.now() / pulseRate) * 0.2 + 0.8; // value between 0.6 and 1.0
     
-    ctx.strokeStyle = `rgba(255, 209, 102, ${pulseAmount})`; // Pulsing opacity
+    ctx.strokeStyle = `rgba(255, 209, 102, ${pulseAmount})`; // Gold pulsing opacity
     ctx.lineWidth = 3;
     ctx.setLineDash([5, 3]); // Dashed line for dynamic effect
     ctx.beginPath();
@@ -119,6 +119,51 @@ export function drawCharacter(ctx: CanvasRenderingContext2D, character: Characte
       // Draw a small star
       ctx.fillStyle = '#FFFFFF';
       drawStar(ctx, starX, starY, 4, 2, 4);
+    }
+  }
+  
+  // Draw slow fall indicator if active
+  if (isSlowFall) {
+    // Draw a blue aura underneath the character
+    const gradient = ctx.createLinearGradient(
+      x, y + height,
+      x, y + height + height/2
+    );
+    gradient.addColorStop(0, 'rgba(30, 144, 255, 0.7)'); // Blue with transparency
+    gradient.addColorStop(1, 'rgba(30, 144, 255, 0)');    // Fade to transparent
+    
+    // Draw floating effect with ripples
+    const time = Date.now() * 0.002;
+    const waveAmplitude = 2;
+    const waveFrequency = 0.2;
+    
+    ctx.fillStyle = gradient;
+    ctx.beginPath();
+    ctx.moveTo(x - width/4, y + height);
+    
+    // Draw wavy bottom edge
+    for (let i = 0; i <= width + width/2; i += 5) {
+      const xPos = x - width/4 + i;
+      const yOffset = Math.sin(time + i * waveFrequency) * waveAmplitude;
+      ctx.lineTo(xPos, y + height + yOffset);
+    }
+    
+    ctx.lineTo(x + width + width/4, y + height);
+    ctx.closePath();
+    ctx.fill();
+    
+    // Draw floating particles
+    const particleCount = 4;
+    for (let i = 0; i < particleCount; i++) {
+      const particleTime = (time + i * 0.5) % 1; // 0 to 1 cycle
+      const particleX = x + width/2 + Math.sin(time * 2 + i) * width/3;
+      const particleY = y + height + particleTime * height/2;
+      const particleSize = (1 - particleTime) * 3;
+      
+      ctx.fillStyle = 'rgba(173, 216, 230, ' + (1 - particleTime) + ')';
+      ctx.beginPath();
+      ctx.arc(particleX, particleY, particleSize, 0, Math.PI * 2);
+      ctx.fill();
     }
   }
   
