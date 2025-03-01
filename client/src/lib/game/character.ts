@@ -14,12 +14,16 @@ export interface Character {
   velocityX: number;
   isJumping: boolean;
   facingDirection: number; // 1 for right, -1 for left
+  
+  // Power-up effects
   invincibleUntil?: number; // Timestamp when invincibility ends
   isInvincible?: boolean; // Flag to check invincibility state
+  slowFallUntil?: number; // Timestamp when slow fall ends
+  isSlowFall?: boolean; // Flag to check slow fall state
 }
 
 export function drawCharacter(ctx: CanvasRenderingContext2D, character: Character) {
-  const { x, y, width, height, facingDirection, isInvincible } = character;
+  const { x, y, width, height, facingDirection, isInvincible, isSlowFall } = character;
   
   ctx.save();
   

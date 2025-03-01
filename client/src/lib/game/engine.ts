@@ -19,7 +19,14 @@ import {
   BASE_SCROLL_SPEED,
   SCROLL_SPEED_INCREMENT,
   MAX_SCROLL_SPEED,
-  SCORE_PER_INCREMENT
+  SCORE_PER_INCREMENT,
+  PowerUpType,
+  POWER_UP_SIZE,
+  POWER_UP_SPAWN_CHANCE,
+  INVINCIBILITY_POWER_UP_DURATION,
+  SLOW_FALL_POWER_UP_DURATION,
+  SLOW_FALL_FACTOR,
+  HEALTH_BOOST_AMOUNT
 } from './constants';
 import { Platform, PlatformType, createPlatform, drawPlatform } from './platform';
 import { drawCharacter, Character } from './character';

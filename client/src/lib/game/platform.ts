@@ -1,7 +1,10 @@
 import { 
   PLATFORM_HEIGHT, 
   PLATFORM_COLORS,
-  SPIKE_HEIGHT
+  SPIKE_HEIGHT,
+  PowerUpType,
+  POWER_UP_SIZE,
+  POWER_UP_SPAWN_CHANCE
 } from './constants';
 
 // Platform types
@@ -11,6 +14,16 @@ export enum PlatformType {
   COLLAPSING,
   CONVEYOR,
   SPRING
+}
+
+// PowerUp interface
+export interface PowerUp {
+  type: PowerUpType;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  active: boolean;
 }
 
 // Platform interface
@@ -23,6 +36,7 @@ export interface Platform {
   type: PlatformType;
   timer?: number;
   collapsed?: boolean;
+  powerUp?: PowerUp;
 }
 
 // Counter to generate unique IDs for platforms
@@ -35,6 +49,24 @@ export function createPlatform(
   width: number, 
   type: PlatformType
 ): Platform {
+  // Randomly add power-ups to platforms with POWER_UP_SPAWN_CHANCE probability
+  let powerUp: PowerUp | undefined;
+  
+  // Don't spawn power-ups on spike or collapsing platforms
+  if (type !== PlatformType.SPIKE && type !== PlatformType.COLLAPSING && Math.random() < POWER_UP_SPAWN_CHANCE) {
+    // Choose a random power-up type
+    const powerUpType = Math.floor(Math.random() * 3);
+    
+    powerUp = {
+      type: powerUpType,
+      x: x + width/2 - POWER_UP_SIZE/2, // center the power-up horizontally
+      y: y,                            // position at the top of the platform
+      width: POWER_UP_SIZE,
+      height: POWER_UP_SIZE,
+      active: true
+    };
+  }
+  
   return {
     id: platformIdCounter++,
     x,
@@ -42,7 +74,8 @@ export function createPlatform(
     width,
     height: PLATFORM_HEIGHT,
     type,
-    collapsed: false
+    collapsed: false,
+    powerUp
   };
 }
 
@@ -65,6 +98,77 @@ export function drawPlatform(ctx: CanvasRenderingContext2D, platform: Platform) 
       drawSpringPlatform(ctx, platform);
       break;
   }
+  
+  // Draw power-up if the platform has one
+  if (platform.powerUp && platform.powerUp.active) {
+    drawPowerUp(ctx, platform.powerUp);
+  }
+}
+
+// Draw a power-up
+export function drawPowerUp(ctx: CanvasRenderingContext2D, powerUp: PowerUp) {
+  // Position the power-up above the platform
+  const centerX = powerUp.x + powerUp.width / 2;
+  const centerY = powerUp.y - 10; // Float above platform
+  
+  // Draw glowing circle
+  const gradient = ctx.createRadialGradient(
+    centerX, centerY, 0,
+    centerX, centerY, powerUp.width / 2
+  );
+  
+  // Set colors based on power-up type
+  switch (powerUp.type) {
+    case PowerUpType.INVINCIBILITY:
+      // Golden glow for invincibility
+      gradient.addColorStop(0, 'rgba(255, 255, 0, 0.9)');
+      gradient.addColorStop(0.7, 'rgba(255, 215, 0, 0.7)');
+      gradient.addColorStop(1, 'rgba(255, 165, 0, 0)');
+      break;
+    case PowerUpType.SLOW_FALL:
+      // Blue glow for slow fall
+      gradient.addColorStop(0, 'rgba(0, 191, 255, 0.9)');
+      gradient.addColorStop(0.7, 'rgba(30, 144, 255, 0.7)');
+      gradient.addColorStop(1, 'rgba(65, 105, 225, 0)');
+      break;
+    case PowerUpType.HEALTH_BOOST:
+      // Green glow for health boost
+      gradient.addColorStop(0, 'rgba(50, 205, 50, 0.9)');
+      gradient.addColorStop(0.7, 'rgba(34, 139, 34, 0.7)');
+      gradient.addColorStop(1, 'rgba(0, 100, 0, 0)');
+      break;
+  }
+  
+  // Draw the power-up with pulsing animation
+  const time = Date.now() * 0.003;
+  const pulseFactor = 0.8 + Math.sin(time) * 0.2;
+  const radius = powerUp.width / 2 * pulseFactor;
+  
+  ctx.beginPath();
+  ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+  ctx.fillStyle = gradient;
+  ctx.fill();
+  
+  // Draw icon inside based on type
+  ctx.fillStyle = 'white';
+  ctx.font = '14px Arial';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  
+  let icon = '';
+  switch (powerUp.type) {
+    case PowerUpType.INVINCIBILITY:
+      icon = '★'; // Star for invincibility
+      break;
+    case PowerUpType.SLOW_FALL:
+      icon = '↓'; // Down arrow for slow fall
+      break;
+    case PowerUpType.HEALTH_BOOST:
+      icon = '+'; // Plus for health boost
+      break;
+  }
+  
+  ctx.fillText(icon, centerX, centerY);
 }
 
 // Draw a normal platform

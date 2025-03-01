@@ -54,3 +54,17 @@ export const SCORE_PER_INCREMENT = 1000;       // Increased from 100 to 1000 as 
 
 // Canvas settings
 export const CEILING_SPIKE_COUNT = 10;
+
+// Power-up settings
+export enum PowerUpType {
+  INVINCIBILITY,
+  SLOW_FALL,
+  HEALTH_BOOST
+}
+
+export const POWER_UP_SIZE = 20;
+export const POWER_UP_SPAWN_CHANCE = 0.15; // 15% chance per platform
+export const INVINCIBILITY_POWER_UP_DURATION = 5000; // 5 seconds
+export const SLOW_FALL_POWER_UP_DURATION = 7000; // 7 seconds
+export const SLOW_FALL_FACTOR = 0.5; // Halves fall speed
+export const HEALTH_BOOST_AMOUNT = 50; // +50% health
