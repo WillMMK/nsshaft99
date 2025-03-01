@@ -108,6 +108,18 @@ export class GameEngine {
     
     // Create a wider platform for the starting position to make it easier
     const startPlatform = createPlatform(startX, startY, 100, PlatformType.NORMAL);
+    
+    // Add a test power-up to the starting platform to ensure power-ups work
+    startPlatform.powerUp = {
+      type: PowerUpType.INVINCIBILITY,
+      x: startX + 50 - POWER_UP_SIZE / 2,
+      y: startY - POWER_UP_SIZE - 5,
+      width: POWER_UP_SIZE,
+      height: POWER_UP_SIZE,
+      active: true
+    };
+    
+    console.log("Added test power-up to starting platform");
     this.platforms.push(startPlatform);
 
     // Generate additional platforms with appropriate spacing - one per level
@@ -462,8 +474,8 @@ export class GameEngine {
       // Check if character is colliding with power-up
       const collidesX = this.character.x + this.character.width > powerUp.x && 
                      this.character.x < powerUp.x + powerUp.width;
-      const collidesY = this.character.y + this.character.height > powerUp.y - 15 && 
-                     this.character.y < powerUp.y + powerUp.height - 15;
+      const collidesY = this.character.y + this.character.height > powerUp.y && 
+                     this.character.y < powerUp.y + powerUp.height;
       
       if (collidesX && collidesY) {
         // Character collected the power-up

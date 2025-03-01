@@ -63,7 +63,7 @@ export enum PowerUpType {
 }
 
 export const POWER_UP_SIZE = 20;
-export const POWER_UP_SPAWN_CHANCE = 0.15; // 15% chance per platform
+export const POWER_UP_SPAWN_CHANCE = 0.30; // Increased to 30% chance per platform for better testing
 export const INVINCIBILITY_POWER_UP_DURATION = 5000; // 5 seconds
 export const SLOW_FALL_POWER_UP_DURATION = 7000; // 7 seconds
 export const SLOW_FALL_FACTOR = 0.5; // Halves fall speed

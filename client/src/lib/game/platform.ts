@@ -60,11 +60,13 @@ export function createPlatform(
     powerUp = {
       type: powerUpType,
       x: x + width/2 - POWER_UP_SIZE/2, // center the power-up horizontally
-      y: y,                            // position at the top of the platform
+      y: y - POWER_UP_SIZE - 5,         // position above the platform with a small gap
       width: POWER_UP_SIZE,
       height: POWER_UP_SIZE,
       active: true
     };
+    
+    console.log(`Created power-up of type ${PowerUpType[powerUpType]} at position (${Math.round(x + width/2)}, ${Math.round(y - POWER_UP_SIZE)})`);
   }
   
   return {
