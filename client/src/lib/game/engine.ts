@@ -226,25 +226,26 @@ export class GameEngine {
   }
 
   getPlatformType(): PlatformType {
-    // Implementing the exact platform type distribution from requirements
+    // Implementing the platform type distribution with adjusted score thresholds
+    // Since we reduced score accumulation 10x, we need to adjust the thresholds accordingly
     const rand = Math.random();
     const score = this.score;
     
     if (score < 200) {
-      // Early game: mostly safe platforms
+      // Early game: mostly safe platforms (0-200)
       if (rand < 0.7) return PlatformType.NORMAL;
       if (rand < 0.8) return PlatformType.SPRING;
       if (rand < 0.9) return PlatformType.CONVEYOR;
       return PlatformType.COLLAPSING;
     } else if (score < 500) {
-      // Mid game: introduce some hazards
+      // Mid game: introduce some hazards (200-500)
       if (rand < 0.5) return PlatformType.NORMAL;
       if (rand < 0.65) return PlatformType.SPRING;
       if (rand < 0.8) return PlatformType.CONVEYOR;
       if (rand < 0.9) return PlatformType.COLLAPSING;
       return PlatformType.SPIKE;
     } else {
-      // Late game: high risk
+      // Late game: high risk (500+)
       if (rand < 0.3) return PlatformType.NORMAL;
       if (rand < 0.45) return PlatformType.SPRING;
       if (rand < 0.6) return PlatformType.CONVEYOR;

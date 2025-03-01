@@ -42,15 +42,15 @@ export const PLATFORM_COLORS = {
 };
 
 // Score constants
-export const SCORE_PER_PLATFORM = 10;
-export const SCORE_PER_DISTANCE = 1;
+export const SCORE_PER_PLATFORM = 5;          // Reduced from 10 to slow down scoring
+export const SCORE_PER_DISTANCE = 0.1;        // Reduced from 1.0 to 0.1 to significantly slow score growth
 
-// Game progression
+// Game progression - adjusted for slower score growth
 export const DIFFICULTY_INCREASE_RATE = 0.0001; // How fast the game gets harder
-export const BASE_SCROLL_SPEED = 2.5;        // Initial scroll speed (pixels per frame)
-export const SCROLL_SPEED_INCREMENT = 0.5;   // Amount to increase speed per milestone
-export const MAX_SCROLL_SPEED = 5.0;         // Upper limit to maintain playability
-export const SCORE_PER_INCREMENT = 100;      // Score threshold for speed increase
+export const BASE_SCROLL_SPEED = 2.5;          // Initial scroll speed (pixels per frame)
+export const SCROLL_SPEED_INCREMENT = 0.5;     // Amount to increase speed per milestone
+export const MAX_SCROLL_SPEED = 5.0;           // Upper limit to maintain playability
+export const SCORE_PER_INCREMENT = 1000;       // Increased from 100 to 1000 as requested
 
 // Canvas settings
 export const CEILING_SPIKE_COUNT = 10;
