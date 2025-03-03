@@ -4,7 +4,7 @@ import GameCanvas from '@/components/game/GameCanvas';
 import StartScreen from '@/components/game/StartScreen';
 import GameOverScreen from '@/components/game/GameOverScreen';
 import { useAuth } from '@/contexts/AuthContext';
-import { doc, updateDoc, increment } from 'firebase/firestore';
+import { doc, updateDoc, increment, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase/firebase';
 
 const Game = () => {
@@ -13,38 +13,75 @@ const Game = () => {
   const [health, setHealth] = useState(100);
   const [score, setScore] = useState(0);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const { currentUser, userProfile } = useAuth();
+  const { currentUser, userProfile, refreshUserProfile } = useAuth();
 
   const startGame = () => {
     setGameActive(true);
     setGameOver(false);
     setHealth(100);
-    setScore(0);
+    setScore(0); // Start with 0 score
+    console.log("Game started with score: 0");
   };
 
   const endGame = async () => {
     setGameActive(false);
     setGameOver(true);
 
+    // Get the final score from the UI if it's available
+    const finalScoreElement = document.getElementById('score-value');
+    const finalScore = finalScoreElement ? Number(finalScoreElement.textContent) : score;
+    
+    // Update the state with the final score
+    if (finalScore > score) {
+      setScore(finalScore);
+    }
+
+    console.log("Game ended with score:", finalScore);
+
     // Update user stats in Firestore
-    if (currentUser) {
+    if (currentUser && finalScore > 0) { // Make sure we have a valid score
       try {
         const userRef = doc(db, 'users', currentUser.uid);
+        
+        // Get the latest user data to ensure we have the current high score
+        const userDoc = await getDoc(userRef);
+        console.log("User document exists:", userDoc.exists());
+        
+        const userData = userDoc.data();
+        console.log("User data:", userData);
+        
+        const currentHighScore = userData?.highScore || 0;
+        console.log("Current high score:", currentHighScore);
         
         // Update games played count
         await updateDoc(userRef, {
           gamesPlayed: increment(1)
         });
+        console.log("Games played updated");
 
         // Update high score if current score is higher
-        if (userProfile && score > userProfile.highScore) {
-          await updateDoc(userRef, {
-            highScore: score
-          });
+        if (finalScore > currentHighScore) {
+          console.log(`Updating high score from ${currentHighScore} to ${finalScore}`);
+          try {
+            await updateDoc(userRef, {
+              highScore: finalScore
+            });
+            console.log("High score updated successfully");
+            
+            // Refresh the user profile to get the updated high score
+            await refreshUserProfile();
+            console.log("User profile refreshed");
+          } catch (updateError) {
+            console.error("Error updating high score:", updateError);
+          }
+        } else {
+          console.log(`Current score ${finalScore} not higher than high score ${currentHighScore}`);
         }
       } catch (error) {
         console.error('Error updating user stats:', error);
       }
+    } else {
+      console.log("No current user or invalid score:", finalScore);
     }
   };
 

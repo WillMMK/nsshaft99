@@ -22,6 +22,7 @@ interface AuthContextType {
   logout: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
   userProfile: UserProfile | null;
+  refreshUserProfile: () => Promise<void>;
 }
 
 interface UserProfile {
@@ -172,6 +173,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
     return sendPasswordResetEmail(auth, email);
   }
 
+  async function refreshUserProfile() {
+    if (currentUser) {
+      await fetchUserProfile(currentUser);
+    }
+  }
+
   const value = {
     currentUser,
     userProfile,
@@ -180,7 +187,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
     login,
     loginWithGoogle,
     logout,
-    resetPassword
+    resetPassword,
+    refreshUserProfile
   };
 
   return (

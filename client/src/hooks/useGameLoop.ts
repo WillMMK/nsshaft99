@@ -72,5 +72,11 @@ export default function useGameLoop({
     }
   }, []);
 
+  useEffect(() => {
+    // This effect ensures the parent component's score is updated
+    // whenever the internal score changes
+    setScore(score);
+  }, [score, setScore]);
+
   return { updateMovement };
 }

@@ -26,12 +26,18 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
   const movingLeft = useRef(false);
   const movingRight = useRef(false);
 
+  // Add console logs to track score changes
+  const updateScore = (newScore: number) => {
+    console.log("Updating score to:", newScore);
+    setScore(newScore);
+  };
+
   const { updateMovement } = useGameLoop({
     canvasRef,
     health,
     setHealth,
     score,
-    setScore,
+    setScore: updateScore, // Use our logging wrapper
     gameActive,
     onGameOver
   });
@@ -108,6 +114,26 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
     updateMovement(movingLeft.current, false);
     console.log("Mobile RIGHT released");
   };
+
+  // Add this effect to sync the score with the parent component
+  useEffect(() => {
+    // Create a function to periodically sync the score with the parent
+    const syncScore = () => {
+      if (gameActive) {
+        // Get the current score from wherever it's being stored in the game loop
+        // This might be from a ref or from the canvas context
+        const currentGameScore = document.getElementById('score-value')?.textContent;
+        if (currentGameScore && !isNaN(Number(currentGameScore))) {
+          setScore(Number(currentGameScore));
+        }
+      }
+    };
+
+    // Run the sync every 500ms
+    const intervalId = setInterval(syncScore, 500);
+    
+    return () => clearInterval(intervalId);
+  }, [gameActive, setScore]);
 
   return (
     <div ref={containerRef} className="relative w-full h-full">
