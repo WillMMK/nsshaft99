@@ -1,17 +1,13 @@
 import React, { useState } from 'react';
 
 interface MobileControlsProps {
-  onMoveLeft: () => void;
-  onStopMoveLeft: () => void;
-  onMoveRight: () => void;
-  onStopMoveRight: () => void;
+  onTouchStart: (direction: 'left' | 'right') => void;
+  onTouchEnd: () => void;
 }
 
 const MobileControls: React.FC<MobileControlsProps> = ({
-  onMoveLeft,
-  onStopMoveLeft,
-  onMoveRight,
-  onStopMoveRight
+  onTouchStart,
+  onTouchEnd
 }) => {
   const [leftActive, setLeftActive] = useState(false);
   const [rightActive, setRightActive] = useState(false);
@@ -20,25 +16,25 @@ const MobileControls: React.FC<MobileControlsProps> = ({
   const handleLeftStart = (e: React.MouseEvent | React.TouchEvent) => {
     e.preventDefault(); // Prevent default to avoid double events
     setLeftActive(true);
-    onMoveLeft();
+    onTouchStart('left');
   };
   
   const handleLeftEnd = (e: React.MouseEvent | React.TouchEvent) => {
     e.preventDefault();
     setLeftActive(false);
-    onStopMoveLeft();
+    onTouchEnd();
   };
   
   const handleRightStart = (e: React.MouseEvent | React.TouchEvent) => {
     e.preventDefault();
     setRightActive(true);
-    onMoveRight();
+    onTouchStart('right');
   };
   
   const handleRightEnd = (e: React.MouseEvent | React.TouchEvent) => {
     e.preventDefault();
     setRightActive(false);
-    onStopMoveRight();
+    onTouchEnd();
   };
   
   return (

@@ -68,3 +68,31 @@ export const INVINCIBILITY_POWER_UP_DURATION = 5000; // 5 seconds
 export const SLOW_FALL_POWER_UP_DURATION = 7000; // 7 seconds
 export const SLOW_FALL_FACTOR = 0.5; // Halves fall speed
 export const HEALTH_BOOST_AMOUNT = 50; // +50% health
+
+// Multiplayer constants
+export const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:5000';
+export const DEFAULT_GAME_ID = 'default-game';
+export const MAX_PLAYERS = 10;
+export const PLAYER_COLORS = [
+  '#FF5733', // Red-Orange
+  '#33FF57', // Green
+  '#3357FF', // Blue
+  '#FF33F5', // Pink
+  '#F5FF33', // Yellow
+  '#33FFF5', // Cyan
+  '#F533FF', // Magenta
+  '#FF8333', // Orange
+  '#8333FF', // Purple
+  '#33FF83'  // Mint
+];
+
+// Attack constants
+export const ATTACK_DURATION = 5000; // 5 seconds
+export const ATTACK_COOLDOWN = 3000; // 3 seconds cooldown between attacks
+export const ATTACK_THRESHOLD_SCORE = 500; // Score needed to send attacks
+export const ATTACK_COLORS = {
+  SPIKE_PLATFORM: '#FF5733', // Red-Orange
+  SPEED_UP: '#3357FF', // Blue
+  NARROW_PLATFORM: '#33FF57', // Green
+  REVERSE_CONTROLS: '#FF33F5' // Pink
+};

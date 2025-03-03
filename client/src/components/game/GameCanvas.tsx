@@ -1,71 +1,93 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useCallback } from 'react';
 import HealthBar from './HealthBar';
 import MobileControls from './MobileControls';
 import useGameLoop from '@/hooks/useGameLoop';
+import { useMultiplayer } from '@/contexts/MultiplayerContext';
+import { useGameState } from '@/contexts/GameStateContext';
+import PlayerList from '@/components/multiplayer/PlayerList';
+import AttackNotification from '@/components/multiplayer/AttackNotification';
+import AttackButton from '@/components/multiplayer/AttackButton';
 
 interface GameCanvasProps {
-  canvasRef: React.RefObject<HTMLCanvasElement>;
-  health: number;
-  setHealth: (health: number) => void;
-  score: number;
-  setScore: (score: number) => void;
-  gameActive: boolean;
-  onGameOver: () => void;
+  onJoinMultiplayer: () => void;
 }
 
-const GameCanvas: React.FC<GameCanvasProps> = ({ 
-  canvasRef, 
-  health, 
-  setHealth, 
-  score, 
-  setScore, 
-  gameActive,
-  onGameOver 
-}) => {
+const GameCanvas: React.FC<GameCanvasProps> = ({ onJoinMultiplayer }) => {
   const containerRef = useRef<HTMLDivElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   const movingLeft = useRef(false);
   const movingRight = useRef(false);
+  
+  const { gameState, setGameState } = useGameState();
+  const { health, score, isRunning } = gameState;
+  
+  const { isMultiplayer, playerId, players, updateScore } = useMultiplayer();
 
-  // Add console logs to track score changes
-  const updateScore = (newScore: number) => {
-    console.log("Updating score to:", newScore);
-    setScore(newScore);
-  };
+  // Use useCallback to prevent infinite loops
+  const setHealth = useCallback((newHealth: number) => {
+    setGameState(prev => ({
+      ...prev,
+      health: newHealth
+    }));
+  }, [setGameState]);
+
+  const setScore = useCallback((newScore: number) => {
+    setGameState(prev => ({
+      ...prev,
+      score: newScore
+    }));
+    
+    // Update score in multiplayer if active
+    if (isMultiplayer) {
+      updateScore(newScore);
+    }
+  }, [setGameState, isMultiplayer, updateScore]);
+
+  const handleGameOver = useCallback(() => {
+    setGameState(prev => ({
+      ...prev,
+      isRunning: false
+    }));
+  }, [setGameState]);
 
   const { updateMovement } = useGameLoop({
     canvasRef,
     health,
     setHealth,
     score,
-    setScore: updateScore, // Use our logging wrapper
-    gameActive,
-    onGameOver
+    setScore,
+    gameActive: isRunning,
+    onGameOver: handleGameOver,
+    isMultiplayer
   });
 
   useEffect(() => {
-    console.log("Setting up keyboard controls");
-
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'ArrowLeft') {
+      if (!isRunning) return;
+      
+      // Check if controls are reversed due to an attack
+      const isReversed = gameState.activeEffects.reverseControls;
+      
+      if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') {
         movingLeft.current = true;
-        updateMovement(true, movingRight.current);
-        console.log("LEFT key down");
-      } else if (e.key === 'ArrowRight') {
+        movingRight.current = false;
+        updateMovement(isReversed ? false : true, isReversed ? true : false);
+      } else if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
         movingRight.current = true;
-        updateMovement(movingLeft.current, true);
-        console.log("RIGHT key down");
+        movingLeft.current = false;
+        updateMovement(isReversed ? true : false, isReversed ? false : true);
       }
     };
 
     const handleKeyUp = (e: KeyboardEvent) => {
-      if (e.key === 'ArrowLeft') {
+      if (!isRunning) return;
+      
+      if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') {
         movingLeft.current = false;
         updateMovement(false, movingRight.current);
-        console.log("LEFT key up");
-      } else if (e.key === 'ArrowRight') {
+      } else if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
         movingRight.current = false;
         updateMovement(movingLeft.current, false);
-        console.log("RIGHT key up");
       }
     };
 
@@ -76,101 +98,67 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [updateMovement]);
+  }, [isRunning, updateMovement, gameState.activeEffects.reverseControls]);
 
-  useEffect(() => {
-    const ensureCanvasIsReady = () => {
-      if (canvasRef.current) {
-        if (!canvasRef.current.width || !canvasRef.current.height) {
-          canvasRef.current.width = 273;
-          canvasRef.current.height = 492;
-        }
-        console.log("Canvas dimensions confirmed:", canvasRef.current.width, canvasRef.current.height);
-      }
-    };
-    ensureCanvasIsReady();
-  }, [canvasRef]);
-
-  const handleMoveLeft = () => {
-    movingLeft.current = true;
-    updateMovement(true, movingRight.current);
-    console.log("Mobile LEFT pressed");
-  };
-
-  const handleStopMoveLeft = () => {
-    movingLeft.current = false;
-    updateMovement(false, movingRight.current);
-    console.log("Mobile LEFT released");
-  };
-
-  const handleMoveRight = () => {
-    movingRight.current = true;
-    updateMovement(movingLeft.current, true);
-    console.log("Mobile RIGHT pressed");
-  };
-
-  const handleStopMoveRight = () => {
-    movingRight.current = false;
-    updateMovement(movingLeft.current, false);
-    console.log("Mobile RIGHT released");
-  };
-
-  // Add this effect to sync the score with the parent component
-  useEffect(() => {
-    // Create a function to periodically sync the score with the parent
-    const syncScore = () => {
-      if (gameActive) {
-        // Get the current score from wherever it's being stored in the game loop
-        // This might be from a ref or from the canvas context
-        const currentGameScore = document.getElementById('score-value')?.textContent;
-        if (currentGameScore && !isNaN(Number(currentGameScore))) {
-          setScore(Number(currentGameScore));
-        }
-      }
-    };
-
-    // Run the sync every 500ms
-    const intervalId = setInterval(syncScore, 500);
+  const handleTouchStart = (direction: 'left' | 'right') => {
+    if (!isRunning) return;
     
-    return () => clearInterval(intervalId);
-  }, [gameActive, setScore]);
+    // Check if controls are reversed due to an attack
+    const isReversed = gameState.activeEffects.reverseControls;
+    
+    if (direction === 'left') {
+      movingLeft.current = true;
+      movingRight.current = false;
+      updateMovement(isReversed ? false : true, isReversed ? true : false);
+    } else {
+      movingRight.current = true;
+      movingLeft.current = false;
+      updateMovement(isReversed ? true : false, isReversed ? false : true);
+    }
+  };
+
+  const handleTouchEnd = () => {
+    if (!isRunning) return;
+    
+    movingLeft.current = false;
+    movingRight.current = false;
+    updateMovement(false, false);
+  };
 
   return (
     <div ref={containerRef} className="relative w-full h-full">
-      {/* Game HUD - Score and Health */}
-      <div className="absolute top-0 left-0 w-full p-2 flex justify-between items-center z-10 bg-black bg-opacity-70">
+      <canvas
+        ref={canvasRef}
+        width={273}
+        height={492}
+        className="absolute top-0 left-0 w-full h-full"
+      />
+      
+      <div className="absolute top-0 left-0 w-full p-2">
         <HealthBar health={health} />
-        <div className="font-mono text-yellow-400 text-lg">
-          <span>SCORE: </span>
-          <span id="score-value">{score}</span>
+        <div id="score-value" className="text-white font-mono text-sm mt-1">
+          {score}
         </div>
       </div>
-
-      {/* Debug info - can be removed in production */}
-      <div className="absolute top-16 left-2 text-white text-xs z-10 bg-black bg-opacity-50 p-1 rounded">
-        <div>Controls: Arrow Keys</div>
-        <div>Movement: {movingLeft.current ? 'LEFT ' : ''}{movingRight.current ? 'RIGHT' : ''}</div>
-        <div>Health: {health} | Score: {score}</div>
-        <div>Canvas: 273x492</div>
-        <div>Game Active: {gameActive ? 'YES' : 'NO'}</div>
-      </div>
-
-      {/* The game canvas - precisely sized and positioned */}
-      <canvas 
-        ref={canvasRef} 
-        width="273" 
-        height="492" 
-        className="block w-full h-full object-contain"
-        style={{ imageRendering: 'pixelated' }} // For crisp pixel rendering
-      />
-
-      {/* Mobile controls overlay */}
-      <MobileControls 
-        onMoveLeft={handleMoveLeft}
-        onStopMoveLeft={handleStopMoveLeft}
-        onMoveRight={handleMoveRight}
-        onStopMoveRight={handleStopMoveRight}
-      />
+      
+      {isMultiplayer && (
+        <div className="absolute top-12 right-2 flex flex-col items-end">
+          <PlayerList />
+          <AttackNotification />
+          <AttackButton score={score} />
+        </div>
+      )}
+      
+      {!isMultiplayer && !isRunning && (
+        <button 
+          onClick={onJoinMultiplayer}
+          className="absolute bottom-20 right-2 bg-game-blue text-white px-2 py-1 rounded text-xs"
+        >
+          Multiplayer
+        </button>
+      )}
+      
+      <MobileControls onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd} />
     </div>
   );
 };

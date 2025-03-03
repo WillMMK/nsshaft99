@@ -1,59 +1,50 @@
-import React, { useEffect, useState } from 'react';
-import { playSound } from '@/lib/game/audio';
+import React from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useGameState } from '@/contexts/GameStateContext';
 
 interface GameOverScreenProps {
-  score: number;
-  onRestart: () => void;
+  winner: { id: string; name: string } | null;
+  onPlayAgain: () => void;
 }
 
-const GameOverScreen: React.FC<GameOverScreenProps> = ({ score, onRestart }) => {
-  const { userProfile, refreshUserProfile } = useAuth();
-  const [highScore, setHighScore] = useState(userProfile?.highScore || 0);
-  const isHighScore = score > highScore;
-  
-  useEffect(() => {
-    // Play game over sound when screen appears
-    playSound('gameover');
-    
-    // Refresh user profile to get updated high score
-    const updateProfile = async () => {
-      await refreshUserProfile();
-      if (userProfile) {
-        setHighScore(userProfile.highScore);
-      }
-    };
-    
-    updateProfile();
-  }, [refreshUserProfile]);
-  
-  // Update high score when userProfile changes
-  useEffect(() => {
-    if (userProfile) {
-      setHighScore(userProfile.highScore);
-    }
-  }, [userProfile]);
+const GameOverScreen: React.FC<GameOverScreenProps> = ({ winner, onPlayAgain }) => {
+  const { userProfile } = useAuth();
+  const { gameState } = useGameState();
+  const isMultiplayer = !!winner;
   
   return (
-    <div className="absolute inset-0 flex flex-col items-center justify-center bg-game-dark bg-opacity-90 z-20">
-      <h2 className="font-pixel text-danger-red text-xl mb-4">GAME OVER</h2>
-      <div className="mb-6">
-        <p className="font-mono text-game-light text-lg">
-          FINAL SCORE: <span>{score}</span>
-        </p>
+    <div className="absolute inset-0 flex flex-col items-center justify-center bg-game-dark bg-opacity-90 z-30">
+      <div className="bg-game-dark border-2 border-game-blue p-6 rounded-lg w-full max-w-md text-center">
+        <h2 className="font-pixel text-game-yellow text-2xl mb-4">Game Over!</h2>
         
-        <p className="font-mono text-game-light text-sm mt-2">
-          HIGH SCORE: <span className={isHighScore ? "text-game-yellow" : ""}>{isHighScore ? score : highScore}</span>
-          {isHighScore && <span className="text-game-yellow ml-2">NEW!</span>}
-        </p>
+        {isMultiplayer ? (
+          <div className="mb-6">
+            <p className="text-game-light text-lg mb-2">Winner:</p>
+            <p className="text-game-blue text-xl font-bold">{winner.name}</p>
+          </div>
+        ) : (
+          <div className="mb-6">
+            <p className="text-game-light text-lg mb-2">Your Score:</p>
+            <p className="text-game-blue text-xl font-bold">{gameState.score}</p>
+            
+            {userProfile?.highScore && (
+              <div className="mt-4">
+                <p className="text-game-light text-sm">High Score:</p>
+                <p className="text-game-yellow text-lg">
+                  {Math.max(userProfile.highScore, gameState.score)}
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+        
+        <button
+          onClick={onPlayAgain}
+          className="px-6 py-3 bg-game-blue text-white font-pixel rounded-lg hover:bg-opacity-80 transition-all"
+        >
+          Play Again
+        </button>
       </div>
-      
-      <button 
-        onClick={onRestart}
-        className="px-6 py-3 bg-game-red hover:bg-opacity-80 text-white font-pixel rounded-lg transition-all"
-      >
-        TRY AGAIN
-      </button>
     </div>
   );
 };

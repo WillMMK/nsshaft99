@@ -26,11 +26,37 @@ import {
   INVINCIBILITY_POWER_UP_DURATION,
   SLOW_FALL_POWER_UP_DURATION,
   SLOW_FALL_FACTOR,
-  HEALTH_BOOST_AMOUNT
+  HEALTH_BOOST_AMOUNT,
+  PLAYER_COLORS
 } from './constants';
 import { Platform, PlatformType, createPlatform, drawPlatform } from './platform';
 import { drawCharacter, Character } from './character';
 import { playSound } from './audio';
+import { Player, AttackType } from '@/types';
+
+// Define a NetworkPlayer interface for backward compatibility
+interface NetworkPlayer {
+  id: string;
+  name: string;
+  x: number;
+  y: number;
+  health: number;
+  score: number;
+  velocityY: number;
+  velocityX: number;
+  isJumping: boolean;
+  facingDirection: number;
+  isInvincible?: boolean;
+  isSlowFall?: boolean;
+}
+
+// Define an Attack interface for backward compatibility
+interface Attack {
+  type: AttackType;
+  fromPlayerId: string;
+  toPlayerId: string;
+  duration?: number;
+}
 
 export class GameEngine {
   canvas: HTMLCanvasElement;
@@ -51,12 +77,20 @@ export class GameEngine {
   onUpdateHealth: (health: number) => void;
   onUpdateScore: (score: number) => void;
   onGameOver: () => void;
+  isMultiplayer: boolean = false;
+  otherPlayers: Record<string, NetworkPlayer> = {};
+  localPlayerId: string = '';
+  playerColors: Record<string, string> = {};
+  activeAttacks: Attack[] = [];
+  isControlsReversed: boolean = false;
+  narrowNextPlatforms: number = 0;
 
   constructor(
     canvas: HTMLCanvasElement, 
     onUpdateHealth: (health: number) => void,
     onUpdateScore: (score: number) => void,
-    onGameOver: () => void
+    onGameOver: () => void,
+    isMultiplayer: boolean = false
   ) {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d')!;
@@ -96,6 +130,9 @@ export class GameEngine {
     this.onUpdateScore(this.score);
     this.totalDistanceTraveled = 0;
     this.gameActive = true;
+
+    // Initialize multiplayer
+    this.isMultiplayer = isMultiplayer;
   }
 
   initializePlatforms() {
@@ -276,6 +313,13 @@ export class GameEngine {
   }
 
   updateMovement(isMovingLeft: boolean, isMovingRight: boolean) {
+    // If controls are reversed, swap left and right
+    if (this.isControlsReversed) {
+      const temp = isMovingLeft;
+      isMovingLeft = isMovingRight;
+      isMovingRight = temp;
+    }
+    
     this.isMovingLeft = isMovingLeft;
     this.isMovingRight = isMovingRight;
     if (isMovingLeft && !isMovingRight) {
@@ -293,6 +337,11 @@ export class GameEngine {
     this.checkCollisions();
     this.checkGameOver();
     this.draw();
+
+    // After updating the local player and game state, render other players
+    if (this.isMultiplayer) {
+      this.renderOtherPlayers();
+    }
   }
 
   updateCamera() {
@@ -849,6 +898,159 @@ export class GameEngine {
       ctx.closePath();
       ctx.fillStyle = `rgba(255, 50, 50, ${glowIntensity * 0.3})`; // Semi-transparent red with pulsing alpha
       ctx.fill();
+    }
+  }
+
+  setMultiplayerData(players: Record<string, Player>, localPlayerId: string): void {
+    this.localPlayerId = localPlayerId;
+    
+    // Convert Player objects to NetworkPlayer objects
+    const networkPlayers: Record<string, NetworkPlayer> = {};
+    Object.entries(players).forEach(([id, player]) => {
+      networkPlayers[id] = {
+        id: player.id,
+        name: player.name,
+        score: player.score,
+        x: 0, // Default position
+        y: 0, // Default position
+        health: 100, // Default health
+        velocityY: 0,
+        velocityX: 0,
+        isJumping: false,
+        facingDirection: 1
+      };
+    });
+    
+    this.otherPlayers = { ...networkPlayers };
+    
+    // Remove local player from other players
+    if (this.otherPlayers[localPlayerId]) {
+      delete this.otherPlayers[localPlayerId];
+    }
+    
+    // Assign colors to players
+    Object.keys(players).forEach((playerId, index) => {
+      if (!this.playerColors[playerId]) {
+        this.playerColors[playerId] = PLAYER_COLORS[index % PLAYER_COLORS.length];
+      }
+    });
+  }
+
+  private renderOtherPlayers(): void {
+    if (!this.ctx) return;
+    
+    Object.values(this.otherPlayers).forEach(player => {
+      // Calculate the relative position based on camera
+      const relativeY = player.y - this.cameraY;
+      
+      // Only render if the player is visible on screen
+      if (relativeY >= 0 && relativeY <= this.canvas.height) {
+        // Draw the player with their assigned color
+        this.ctx.save();
+        
+        // Draw player body
+        this.ctx.fillStyle = this.playerColors[player.id] || '#FFFFFF';
+        this.ctx.fillRect(player.x, relativeY, CHARACTER_SIZE, CHARACTER_SIZE);
+        
+        // Draw player face (simplified)
+        this.ctx.fillStyle = '#000000';
+        
+        // Eyes
+        const eyeSize = 2;
+        const eyeY = relativeY + 5;
+        
+        // Adjust eye position based on facing direction
+        if (player.facingDirection > 0) {
+          // Facing right
+          this.ctx.fillRect(player.x + 12, eyeY, eyeSize, eyeSize);
+          this.ctx.fillRect(player.x + 16, eyeY, eyeSize, eyeSize);
+        } else {
+          // Facing left
+          this.ctx.fillRect(player.x + 4, eyeY, eyeSize, eyeSize);
+          this.ctx.fillRect(player.x + 8, eyeY, eyeSize, eyeSize);
+        }
+        
+        // Draw player name above
+        this.ctx.fillStyle = this.playerColors[player.id] || '#FFFFFF';
+        this.ctx.font = '10px Arial';
+        this.ctx.textAlign = 'center';
+        this.ctx.fillText(player.name, player.x + CHARACTER_SIZE / 2, relativeY - 5);
+        
+        this.ctx.restore();
+      }
+    });
+  }
+
+  applyAttack(attack: Attack): void {
+    this.activeAttacks.push(attack);
+    
+    // Apply immediate effects
+    switch (attack.type as AttackType) {
+      case AttackType.SPIKE_PLATFORM:
+        // Add a spike platform near the player
+        this.addSpikePlatform();
+        break;
+      case AttackType.SPEED_UP:
+        // Temporarily increase scroll speed
+        this.SCROLL_SPEED *= 1.5;
+        // Set a timeout to reset the speed
+        setTimeout(() => {
+          this.SCROLL_SPEED /= 1.5;
+        }, attack.duration || 5000);
+        break;
+      case AttackType.NARROW_PLATFORM:
+        // Make the next few platforms narrower
+        this.narrowNextPlatforms = 5;
+        break;
+      case AttackType.REVERSE_CONTROLS:
+        // Reverse the controls
+        this.isControlsReversed = true;
+        // Set a timeout to reset the controls
+        setTimeout(() => {
+          this.isControlsReversed = false;
+        }, attack.duration || 5000);
+        break;
+    }
+  }
+
+  addSpikePlatform(): void {
+    const playerY = this.character.y;
+    const platformY = playerY + 100; // Add a spike platform below the player
+    
+    // Create a spike platform
+    const platform = createPlatform(
+      platformY,
+      Math.random() * (this.canvas.width - MIN_PLATFORM_WIDTH),
+      PlatformType.SPIKE
+    );
+    
+    this.platforms.push(platform);
+  }
+
+  /**
+   * Clean up resources when the game engine is destroyed
+   */
+  destroy() {
+    console.log("GameEngine destroy called");
+    
+    // Reset all game state
+    this.gameActive = false;
+    this.isMovingLeft = false;
+    this.isMovingRight = false;
+    this.platforms = [];
+    this.totalDistanceTraveled = 0;
+    this.cameraY = 0;
+    this.score = 0;
+    this.health = 100;
+    this.lastPlatformLanded = null;
+    this.otherPlayers = {};
+    this.activeAttacks = [];
+    this.isControlsReversed = false;
+    this.narrowNextPlatforms = 0;
+    
+    // Clear the canvas
+    if (this.ctx) {
+      this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
     }
   }
 }

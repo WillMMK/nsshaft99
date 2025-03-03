@@ -10,6 +10,8 @@ import ForgotPassword from "@/components/auth/ForgotPassword";
 import Profile from "@/components/auth/Profile";
 import NavBar from "@/components/layout/NavBar";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { MultiplayerProvider } from "@/contexts/MultiplayerContext";
+import { GameStateProvider } from "@/contexts/GameStateContext";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 
 function Router() {
@@ -40,8 +42,12 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <Router />
-        <Toaster />
+        <MultiplayerProvider>
+          <GameStateProvider>
+            <Router />
+            <Toaster />
+          </GameStateProvider>
+        </MultiplayerProvider>
       </AuthProvider>
     </QueryClientProvider>
   );

@@ -1,31 +1,42 @@
 import React from 'react';
+import { useGameState } from '@/contexts/GameStateContext';
 
 interface StartScreenProps {
   onStartGame: () => void;
+  onStartMultiplayer: () => void;
 }
 
-const StartScreen: React.FC<StartScreenProps> = ({ onStartGame }) => {
+const StartScreen: React.FC<StartScreenProps> = ({ onStartGame, onStartMultiplayer }) => {
+  const { resetGame, setGameState } = useGameState();
+
+  const handleStartGame = () => {
+    resetGame();
+    setGameState(prev => ({
+      ...prev,
+      isRunning: true
+    }));
+    onStartGame();
+  };
+
   return (
-    <div className="absolute inset-0 flex flex-col items-center justify-center bg-game-dark bg-opacity-90 z-20">
-      <h2 className="font-pixel text-game-yellow text-xl mb-6">NS-SHAFT</h2>
-      <div className="mb-8 text-center">
-        <div className="font-mono text-game-light text-md mb-4">CONTROLS:</div>
-        <div className="flex justify-center space-x-4 mb-2">
-          <div className="w-10 h-10 border-2 border-game-light rounded flex items-center justify-center">
-            <i className="ri-arrow-left-s-line text-xl"></i>
-          </div>
-          <div className="w-10 h-10 border-2 border-game-light rounded flex items-center justify-center">
-            <i className="ri-arrow-right-s-line text-xl"></i>
-          </div>
-        </div>
-        <p className="font-sans text-sm text-game-light">Move left and right to survive!</p>
+    <div className="absolute inset-0 flex flex-col items-center justify-center bg-game-dark bg-opacity-80 z-10">
+      <h1 className="font-pixel text-game-yellow text-2xl mb-8">NS-SHAFT</h1>
+      
+      <div className="flex flex-col gap-4">
+        <button 
+          onClick={handleStartGame}
+          className="px-6 py-3 bg-game-red hover:bg-opacity-80 text-white font-pixel rounded-lg transition-all"
+        >
+          START GAME
+        </button>
+        
+        <button 
+          onClick={onStartMultiplayer}
+          className="px-6 py-3 bg-game-blue hover:bg-opacity-80 text-white font-pixel rounded-lg transition-all"
+        >
+          MULTIPLAYER
+        </button>
       </div>
-      <button 
-        onClick={onStartGame}
-        className="px-6 py-3 bg-game-blue hover:bg-opacity-80 text-white font-pixel rounded-lg transition-all"
-      >
-        START GAME
-      </button>
     </div>
   );
 };
