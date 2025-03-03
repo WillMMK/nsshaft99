@@ -17,6 +17,7 @@ const Game: React.FC = () => {
   const [showLobby, setShowLobby] = useState<boolean>(false);
   const [showGameOver, setShowGameOver] = useState<boolean>(false);
   const [winner, setWinner] = useState<{ id: string; name: string } | null>(null);
+  const [isTransitioning, setIsTransitioning] = useState<boolean>(false);
   const gameRef = useRef<HTMLDivElement>(null);
 
   // Handle multiplayer attacks
@@ -305,6 +306,9 @@ const Game: React.FC = () => {
   const handlePlayAgain = () => {
     console.log('Starting handlePlayAgain');
     
+    // Set transitioning state to prevent showing StartScreen
+    setIsTransitioning(true);
+    
     // First, stop the current game completely
     setGameState(prev => ({
       ...prev,
@@ -344,6 +348,9 @@ const Game: React.FC = () => {
           isPaused: false
         }));
         
+        // Reset transitioning state
+        setIsTransitioning(false);
+        
         console.log('Finished handlePlayAgain');
       }, 100);
     }, 100);
@@ -365,7 +372,7 @@ const Game: React.FC = () => {
 
   return (
     <div ref={gameRef} className="relative w-full h-full overflow-hidden">
-      {!gameState.isRunning && !showGameOver && !showLobby && (
+      {!gameState.isRunning && !showGameOver && !showLobby && !isTransitioning && (
         <StartScreen 
           onStartGame={handleStartGame} 
           onStartMultiplayer={handleStartMultiplayer} 
