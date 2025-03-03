@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { playSound } from '@/lib/game/audio';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface GameOverScreenProps {
   score: number;
@@ -7,6 +8,8 @@ interface GameOverScreenProps {
 }
 
 const GameOverScreen: React.FC<GameOverScreenProps> = ({ score, onRestart }) => {
+  const { userProfile } = useAuth();
+  const isHighScore = userProfile && score > userProfile.highScore;
   
   useEffect(() => {
     // Play game over sound when screen appears
@@ -20,7 +23,15 @@ const GameOverScreen: React.FC<GameOverScreenProps> = ({ score, onRestart }) => 
         <p className="font-mono text-game-light text-lg">
           FINAL SCORE: <span>{score}</span>
         </p>
+        
+        {userProfile && (
+          <p className="font-mono text-game-light text-sm mt-2">
+            HIGH SCORE: <span className={isHighScore ? "text-game-yellow" : ""}>{isHighScore ? score : userProfile.highScore}</span>
+            {isHighScore && <span className="text-game-yellow ml-2">NEW!</span>}
+          </p>
+        )}
       </div>
+      
       <button 
         onClick={onRestart}
         className="px-6 py-3 bg-game-red hover:bg-opacity-80 text-white font-pixel rounded-lg transition-all"

@@ -1,48 +1,68 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
+import { Link } from 'wouter';
 import GameCanvas from '@/components/game/GameCanvas';
 import StartScreen from '@/components/game/StartScreen';
 import GameOverScreen from '@/components/game/GameOverScreen';
-import { INITIAL_HEALTH } from '@/lib/game/constants';
+import { useAuth } from '@/contexts/AuthContext';
+import { doc, updateDoc, increment } from 'firebase/firestore';
+import { db } from '@/lib/firebase/firebase';
 
 const Game = () => {
   const [gameActive, setGameActive] = useState(false);
   const [gameOver, setGameOver] = useState(false);
-  const [health, setHealth] = useState(INITIAL_HEALTH);
+  const [health, setHealth] = useState(100);
   const [score, setScore] = useState(0);
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const { currentUser, userProfile } = useAuth();
+
   const startGame = () => {
     setGameActive(true);
     setGameOver(false);
-    setHealth(INITIAL_HEALTH);
+    setHealth(100);
     setScore(0);
   };
-  
-  const endGame = () => {
+
+  const endGame = async () => {
     setGameActive(false);
     setGameOver(true);
-  };
-  
-  const restartGame = () => {
-    setGameActive(false);
-    setGameOver(false);
-    // Wait longer before starting a new game to make sure 
-    // everything is properly cleaned up and reset
-    setTimeout(() => {
-      startGame();
-    }, 200); // Increased timeout to ensure cleanup completes
-  };
-  
-  useEffect(() => {
-    if (health <= 0) {
-      endGame();
+
+    // Update user stats in Firestore
+    if (currentUser) {
+      try {
+        const userRef = doc(db, 'users', currentUser.uid);
+        
+        // Update games played count
+        await updateDoc(userRef, {
+          gamesPlayed: increment(1)
+        });
+
+        // Update high score if current score is higher
+        if (userProfile && score > userProfile.highScore) {
+          await updateDoc(userRef, {
+            highScore: score
+          });
+        }
+      } catch (error) {
+        console.error('Error updating user stats:', error);
+      }
     }
-  }, [health]);
-  
+  };
+
+  const restartGame = () => {
+    startGame();
+  };
+
   return (
     <div className="bg-game-dark text-game-light min-h-screen flex flex-col items-center justify-center p-4">
       <div className="w-full max-w-md mx-auto flex flex-col items-center">
-        <h1 className="text-center text-game-yellow font-pixel text-2xl mb-4 animate-bobbing">NS-SHAFT</h1>
+        <div className="w-full flex justify-between items-center mb-4">
+          <h1 className="text-game-yellow font-pixel text-2xl animate-bobbing">NS-SHAFT</h1>
+          <Link href="/profile">
+            <a className="px-3 py-1 bg-game-blue hover:bg-opacity-80 text-white font-pixel rounded-lg transition-all text-sm">
+              Profile
+            </a>
+          </Link>
+        </div>
         
         {/* Canvas container with proper centering and aspect ratio */}
         <div 
