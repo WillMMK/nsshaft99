@@ -38,21 +38,28 @@ export const MultiplayerProvider: React.FC<{ children: ReactNode }> = ({ childre
   const [players, setPlayers] = useState<Record<string, Player>>({});
   const [isGameActive, setIsGameActive] = useState<boolean>(false);
   const [gameStartTime, setGameStartTime] = useState<number | null>(null);
+  
+  // Define initializeNetwork as a ref to avoid dependency issues
+  const initializeNetworkRef = React.useRef<() => Promise<void>>();
 
   // Initialize socket connection when component mounts
   useEffect(() => {
     const initializeNetwork = async () => {
       try {
+        console.log('Initializing network connection for multiplayer...');
         await networkManager.initialize();
         setIsConnected(true);
         setPlayerId(networkManager.getSocketId());
+        console.log('Network connection established successfully');
         
         // Set up event listeners
         networkManager.onPlayerJoined((data) => {
+          console.log('Player joined:', data);
           setPlayers(data.players);
         });
         
         networkManager.onPlayerLeft((data) => {
+          console.log('Player left:', data);
           setPlayers(data.players);
         });
         
@@ -61,32 +68,48 @@ export const MultiplayerProvider: React.FC<{ children: ReactNode }> = ({ childre
         });
         
         networkManager.onGameStarted((data) => {
+          console.log('Game started:', data);
           setIsGameActive(true);
           setGameStartTime(data.startTime);
           setPlayers(data.players);
         });
         
-        networkManager.onGameOver(() => {
+        networkManager.onGameOver((data) => {
+          console.log('Game over:', data);
           setIsGameActive(false);
         });
         
         networkManager.onGameReset((data) => {
+          console.log('Game reset:', data);
           setPlayers(data.players);
           setIsGameActive(false);
           setGameStartTime(null);
         });
         
         networkManager.onDisconnect(() => {
+          console.log('Disconnected from server');
           setIsConnected(false);
           setIsGameActive(false);
           setGameId(null);
           setPlayers({});
         });
       } catch (error) {
-        console.error('Failed to initialize network:', error);
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        console.error('Failed to initialize network:', errorMessage);
         setIsConnected(false);
+        
+        // Retry connection after a delay
+        setTimeout(() => {
+          if (isMultiplayer) {
+            console.log('Retrying network connection...');
+            initializeNetwork();
+          }
+        }, 3000);
       }
     };
+    
+    // Store the function in the ref
+    initializeNetworkRef.current = initializeNetwork;
 
     if (isMultiplayer) {
       initializeNetwork();
@@ -94,6 +117,7 @@ export const MultiplayerProvider: React.FC<{ children: ReactNode }> = ({ childre
 
     return () => {
       if (isMultiplayer) {
+        console.log('Cleaning up network connection');
         networkManager.disconnect();
         setIsConnected(false);
         setPlayerId(null);
@@ -112,9 +136,11 @@ export const MultiplayerProvider: React.FC<{ children: ReactNode }> = ({ childre
         await networkManager.initialize();
         setIsConnected(true);
         setPlayerId(networkManager.getSocketId());
+        console.log('Network initialized successfully, socket ID:', networkManager.getSocketId());
       } catch (error) {
-        console.error('Failed to connect:', error);
-        throw new Error('Failed to connect to server');
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        console.error('Failed to connect:', errorMessage);
+        throw new Error(`Failed to connect to server: ${errorMessage}`);
       }
     }
     
@@ -132,7 +158,23 @@ export const MultiplayerProvider: React.FC<{ children: ReactNode }> = ({ childre
         throw new Error(response.error || 'Failed to join game');
       }
     } catch (error) {
-      console.error('Failed to join game:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error('Failed to join game:', errorMessage);
+      
+      // If we failed to join, try to reconnect and join again
+      if (isConnected && networkManager.getSocketId() === null) {
+        console.log('Socket ID is null despite being connected, attempting to reconnect...');
+        setIsConnected(false);
+        
+        // Retry after a short delay
+        setTimeout(() => {
+          if (isMultiplayer && initializeNetworkRef.current) {
+            console.log('Retrying connection...');
+            initializeNetworkRef.current();
+          }
+        }, 1000);
+      }
+      
       throw error;
     }
   };

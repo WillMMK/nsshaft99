@@ -1,8 +1,9 @@
 import { io, Socket } from 'socket.io-client';
 import { Player, AttackType } from '@/types';
+import { SERVER_URL } from './constants';
 
-// The URL of the WebSocket server - hardcoded for now
-const SERVER_URL = 'http://localhost:3001';
+// The URL of the WebSocket server is now imported from constants
+// const SERVER_URL = 'http://localhost:3001';
 
 export class NetworkManager {
   private socket: Socket | null = null;
@@ -23,17 +24,19 @@ export class NetworkManager {
     }
 
     this.connecting = true;
+    console.log(`Attempting to connect to server at ${SERVER_URL}`);
 
     return new Promise<void>((resolve, reject) => {
       this.connectionCallbacks.push({ resolve, reject });
 
       try {
         this.socket = io(SERVER_URL, {
-          transports: ['websocket'],
+          transports: ['websocket', 'polling'], // Add polling as fallback
           autoConnect: true,
           reconnection: true,
           reconnectionAttempts: 5,
           reconnectionDelay: 1000,
+          timeout: 10000, // Increase timeout to 10 seconds
         });
 
         this.socket.on('connect', () => {
@@ -47,15 +50,20 @@ export class NetworkManager {
 
         this.socket.on('connect_error', (error) => {
           console.error('Connection error:', error);
+          console.error('Failed to connect to:', SERVER_URL);
           if (this.connectionCallbacks.length > 0) {
-            this.connectionCallbacks.forEach(callback => callback.reject(new Error('Failed to connect to server')));
+            this.connectionCallbacks.forEach(callback => callback.reject(new Error(`Failed to connect to server at ${SERVER_URL}: ${error.message}`)));
             this.connectionCallbacks = [];
           }
           this.connecting = false;
         });
 
-        this.socket.on('disconnect', () => {
-          console.log('Disconnected from server');
+        this.socket.on('disconnect', (reason) => {
+          console.log('Disconnected from server. Reason:', reason);
+        });
+
+        this.socket.on('error', (error) => {
+          console.error('Socket error:', error);
         });
       } catch (error) {
         console.error('Error initializing socket:', error);
@@ -82,14 +90,15 @@ export class NetworkManager {
           console.error('Socket still not connected after initialization');
           return { 
             success: false, 
-            error: 'Unable to connect to server. Please try again.' 
+            error: `Unable to connect to server at ${SERVER_URL}. Please try again.` 
           };
         }
       } catch (error) {
-        console.error('Failed to initialize socket:', error);
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        console.error('Failed to initialize socket:', errorMessage);
         return { 
           success: false, 
-          error: 'Failed to connect to server. Please check your connection.' 
+          error: `Failed to connect to server at ${SERVER_URL}. Error: ${errorMessage}` 
         };
       }
     }
@@ -101,7 +110,21 @@ export class NetworkManager {
       }
 
       console.log('Emitting join_game event with:', { name, gameId });
+      
+      // Set a timeout in case the server doesn't respond
+      const timeoutId = setTimeout(() => {
+        if (this.socket?.connected) {
+          console.error('Server did not respond to join_game event in time');
+          resolve({
+            success: false,
+            error: 'Server did not respond in time. Please try again.'
+          });
+        }
+      }, 5000);
+      
       this.socket.emit('join_game', { name, gameId }, (response: any) => {
+        clearTimeout(timeoutId); // Clear the timeout since we got a response
+        
         console.log('Received join_game response:', response);
         if (response.success) {
           resolve({
@@ -116,16 +139,6 @@ export class NetworkManager {
           });
         }
       });
-      
-      // Add a timeout in case the server doesn't respond
-      setTimeout(() => {
-        if (this.socket?.connected) {
-          resolve({
-            success: false,
-            error: 'Server did not respond in time. Please try again.'
-          });
-        }
-      }, 5000);
     });
   }
 
