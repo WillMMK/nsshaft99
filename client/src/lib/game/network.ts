@@ -13,58 +13,80 @@ export class NetworkManager {
   // Initialize the socket connection
   public async initialize(): Promise<void> {
     if (this.socket && this.socket.connected) {
-      return Promise.resolve();
+      console.log('Socket already connected');
+      return;
     }
-
+    
     if (this.connecting) {
-      // Return a promise that will be resolved when the connection is established
-      return new Promise<void>((resolve, reject) => {
+      console.log('Already attempting to connect...');
+      return new Promise((resolve, reject) => {
         this.connectionCallbacks.push({ resolve, reject });
       });
     }
-
+    
     this.connecting = true;
-    console.log(`Attempting to connect to server at ${SERVER_URL}`);
-
-    return new Promise<void>((resolve, reject) => {
-      this.connectionCallbacks.push({ resolve, reject });
-
+    
+    return new Promise((resolve, reject) => {
       try {
-        this.socket = io(SERVER_URL, {
-          transports: ['websocket', 'polling'], // Add polling as fallback
-          autoConnect: true,
+        this.connectionCallbacks.push({ resolve, reject });
+        
+        // Get the origin from the current window - this works in Replit
+        const host = window.location.host;
+        const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+        
+        // Use the same origin as the client
+        const serverUrl = window.location.origin;
+        
+        console.log(`Attempting to connect to server at ${serverUrl}`);
+        
+        // Configure socket options
+        const socketOptions: Partial<ManagerOptions & SocketOptions> = {
+          transports: ['websocket', 'polling'],
           reconnection: true,
-          reconnectionAttempts: 5,
+          reconnectionAttempts: 10,
           reconnectionDelay: 1000,
-          timeout: 10000, // Increase timeout to 10 seconds
-        });
-
+          reconnectionDelayMax: 5000,
+          timeout: 20000,
+          autoConnect: true,
+          forceNew: true
+        };
+        
+        // Initialize socket
+        console.log('Initializing socket with options:', socketOptions);
+        this.socket = io(serverUrl, socketOptions);
+        
+        // Set up connection event handlers
         this.socket.on('connect', () => {
           console.log('Connected to server with ID:', this.socket?.id);
           this.connecting = false;
-          
-          // Resolve all pending connection promises
           this.connectionCallbacks.forEach(callback => callback.resolve());
           this.connectionCallbacks = [];
         });
-
+        
         this.socket.on('connect_error', (error) => {
-          console.error('Connection error:', error);
-          console.error('Failed to connect to:', SERVER_URL);
-          if (this.connectionCallbacks.length > 0) {
-            this.connectionCallbacks.forEach(callback => callback.reject(new Error(`Failed to connect to server at ${SERVER_URL}: ${error.message}`)));
+          console.error('Failed to connect to:', serverUrl, error);
+          // Only reject if we've been trying for a while
+          if (this.socket?.io?.attempts && this.socket.io.attempts >= 3) {
+            this.connecting = false;
+            this.connectionCallbacks.forEach(callback => callback.reject(new Error(`Failed to connect to server at ${serverUrl}: ${error.message}`)));
             this.connectionCallbacks = [];
           }
-          this.connecting = false;
         });
-
+        
         this.socket.on('disconnect', (reason) => {
-          console.log('Disconnected from server. Reason:', reason);
+          console.log('Disconnected from server:', reason);
         });
-
-        this.socket.on('error', (error) => {
-          console.error('Socket error:', error);
-        });
+        
+        // Set up a timeout in case the connection takes too long
+        setTimeout(() => {
+          if (this.connecting) {
+            console.error('Connection timeout');
+            this.connecting = false;
+            this.connectionCallbacks.forEach(callback => callback.reject(new Error('Connection timeout')));
+            this.connectionCallbacks = [];
+          }
+        }, 15000);
+        
       } catch (error) {
         console.error('Error initializing socket:', error);
         this.connecting = false;
@@ -120,25 +142,34 @@ export class NetworkManager {
             error: 'Server did not respond in time. Please try again.'
           });
         }
-      }, 5000);
+      }, 10000); // Increased from 5000 to 10000 ms
       
-      this.socket.emit('join_game', { name, gameId }, (response: any) => {
-        clearTimeout(timeoutId); // Clear the timeout since we got a response
-        
-        console.log('Received join_game response:', response);
-        if (response.success) {
-          resolve({
-            success: true,
-            gameId: response.gameId,
-            players: response.players
-          });
-        } else {
-          resolve({
-            success: false,
-            error: response.error || 'Failed to join game'
-          });
-        }
-      });
+      try {
+        this.socket.emit('join_game', { name, gameId }, (response: any) => {
+          clearTimeout(timeoutId); // Clear the timeout since we got a response
+          
+          console.log('Received join_game response:', response);
+          if (response && response.success) {
+            resolve({
+              success: true,
+              gameId: response.gameId,
+              players: response.players
+            });
+          } else {
+            resolve({
+              success: false,
+              error: (response && response.error) || 'Failed to join game'
+            });
+          }
+        });
+      } catch (error) {
+        clearTimeout(timeoutId);
+        console.error('Error emitting join_game event:', error);
+        resolve({
+          success: false,
+          error: 'Error connecting to server: ' + (error instanceof Error ? error.message : String(error))
+        });
+      }
     });
   }
 
@@ -149,15 +180,23 @@ export class NetworkManager {
   }
 
   // Send an attack to another player
-  public sendAttack(targetId: string, attackType: AttackType): void {
+  public sendAttack(targetId?: string, attackType?: AttackType): void {
     if (!this.socket || !this.socket.connected) return;
-    this.socket.emit('send_attack', { targetId, attackType });
+    
+    // If no attack type is specified, use a random one
+    const actualAttackType = attackType || Object.values(AttackType)[Math.floor(Math.random() * Object.values(AttackType).length)];
+    
+    this.socket.emit('sendAttack', { 
+      targetPlayerId: targetId, // If undefined, server will pick a random target
+      attackType: actualAttackType 
+    });
   }
 
   // Report player death
   public reportDeath(): void {
     if (!this.socket || !this.socket.connected) return;
-    this.socket.emit('player_died');
+    console.log('Reporting player death to server');
+    this.socket.emit('report_death');
   }
 
   // Disconnect from the server
@@ -187,10 +226,19 @@ export class NetworkManager {
     return () => this.socket?.off('score_updated', callback);
   }
 
+  // Register callback for receiving attacks
   public onReceiveAttack(callback: (data: { attackerId: string; attackerName: string; attackType: AttackType }) => void): () => void {
     if (!this.socket) return () => {};
-    this.socket.on('receive_attack', callback);
-    return () => this.socket?.off('receive_attack', callback);
+    
+    const handler = (data: { attackerId: string; attackerName: string; attackType: AttackType }) => {
+      console.log('Received attack:', data);
+      callback(data);
+    };
+    
+    this.socket.on('receive_attack', handler);
+    return () => {
+      this.socket?.off('receive_attack', handler);
+    };
   }
 
   public onGameStarted(callback: (data: { gameId: string; players: Record<string, Player>; startTime: number }) => void): () => void {
@@ -209,6 +257,12 @@ export class NetworkManager {
     if (!this.socket) return () => {};
     this.socket.on('game_reset', callback);
     return () => this.socket?.off('game_reset', callback);
+  }
+
+  public onCountdownUpdate(callback: (data: { secondsLeft: number }) => void): () => void {
+    if (!this.socket) return () => {};
+    this.socket.on('countdown_update', callback);
+    return () => this.socket?.off('countdown_update', callback);
   }
 
   public onDisconnect(callback: () => void): () => void {

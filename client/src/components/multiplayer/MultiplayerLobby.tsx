@@ -10,7 +10,14 @@ interface MultiplayerLobbyProps {
 
 const MultiplayerLobby: React.FC<MultiplayerLobbyProps> = ({ onJoin, onCancel }) => {
   const { currentUser, userProfile } = useAuth();
-  const { joinGame, players, setIsMultiplayer, isConnected } = useMultiplayer();
+  const { 
+    joinGame, 
+    players, 
+    setIsMultiplayer, 
+    isConnected, 
+    countdownSeconds,
+    isGameActive
+  } = useMultiplayer();
   const [playerName, setPlayerName] = useState<string>('');
   const [isJoining, setIsJoining] = useState<boolean>(false);
   const [waitingForPlayers, setWaitingForPlayers] = useState<boolean>(false);
@@ -29,13 +36,12 @@ const MultiplayerLobby: React.FC<MultiplayerLobbyProps> = ({ onJoin, onCancel })
     }
   }, [currentUser, userProfile]);
   
-  // Start the game when enough players have joined
+  // Start the game when it becomes active
   useEffect(() => {
-    if (waitingForPlayers && Object.keys(players).length >= MIN_PLAYERS_TO_START) {
-      // At least 2 players have joined, start the game
+    if (isGameActive) {
       onJoin();
     }
-  }, [players, waitingForPlayers, onJoin]);
+  }, [isGameActive, onJoin]);
 
   const handleJoin = async () => {
     if (!playerName.trim()) {
@@ -51,11 +57,7 @@ const MultiplayerLobby: React.FC<MultiplayerLobbyProps> = ({ onJoin, onCancel })
       // Join the global game queue
       await joinGame(playerName, DEFAULT_GAME_ID);
       setWaitingForPlayers(true);
-      
-      // If we already have enough players, start immediately
-      if (Object.keys(players).length >= MIN_PLAYERS_TO_START) {
-        onJoin();
-      }
+      setIsJoining(false);
     } catch (error) {
       console.error('Error joining game:', error);
       setJoinError('Failed to join game. Please try again.');
@@ -66,6 +68,14 @@ const MultiplayerLobby: React.FC<MultiplayerLobbyProps> = ({ onJoin, onCancel })
   const handleCancel = () => {
     setIsMultiplayer(false);
     onCancel();
+  };
+  
+  // Format the countdown time
+  const formatCountdown = (seconds: number | null) => {
+    if (seconds === null) return '';
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
   return (
@@ -110,6 +120,19 @@ const MultiplayerLobby: React.FC<MultiplayerLobbyProps> = ({ onJoin, onCancel })
           </>
         ) : (
           <div className="text-center">
+            {countdownSeconds !== null && (
+              <div className="mb-4">
+                <h3 className="font-pixel text-game-yellow text-xl">
+                  Game starts in: {formatCountdown(countdownSeconds)}
+                </h3>
+                <p className="text-game-light text-sm mt-1">
+                  {countdownSeconds <= 0 
+                    ? 'Starting game...' 
+                    : 'Get ready to play!'}
+                </p>
+              </div>
+            )}
+            
             <div className="mb-4">
               <div className="animate-spin inline-block w-8 h-8 border-4 border-game-blue border-t-transparent rounded-full mb-2"></div>
               <p className="text-game-light">Waiting for players...</p>
@@ -117,7 +140,9 @@ const MultiplayerLobby: React.FC<MultiplayerLobbyProps> = ({ onJoin, onCancel })
                 {Object.keys(players).length} / {MAX_PLAYERS_PER_GAME} players
               </p>
               <p className="text-game-light text-sm mt-1">
-                Game will start automatically when {MIN_PLAYERS_TO_START} players join
+                {countdownSeconds === null 
+                  ? `Game will start automatically when ${MIN_PLAYERS_TO_START} players join`
+                  : 'Game will start when the countdown ends'}
               </p>
             </div>
             
@@ -127,7 +152,7 @@ const MultiplayerLobby: React.FC<MultiplayerLobbyProps> = ({ onJoin, onCancel })
                 <ul className="text-game-light max-h-40 overflow-y-auto">
                   {Object.values(players).map((player) => (
                     <li key={player.id} className="text-sm">
-                      {player.name}
+                      {player.name} {player.isAI ? '(AI)' : ''}
                     </li>
                   ))}
                 </ul>

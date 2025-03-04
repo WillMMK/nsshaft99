@@ -19,9 +19,9 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ onJoinMultiplayer }) => {
   const movingRight = useRef(false);
   
   const { gameState, setGameState } = useGameState();
-  const { health, score, isRunning } = gameState;
+  const { health, score, isRunning, isPaused, activeEffects, attackNotification } = gameState;
   
-  const { isMultiplayer, playerId, players, updateScore } = useMultiplayer();
+  const { isMultiplayer, playerId, players, updateScore, reportDeath } = useMultiplayer();
 
   // Use useCallback to prevent infinite loops
   const setHealth = useCallback((newHealth: number) => {
@@ -56,9 +56,23 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ onJoinMultiplayer }) => {
     setHealth,
     score,
     setScore,
-    gameActive: isRunning,
-    onGameOver: handleGameOver,
-    isMultiplayer
+    gameActive: isRunning && !isPaused,
+    onGameOver: () => {
+      if (isMultiplayer) {
+        // In multiplayer, the game over is handled by the server
+      } else {
+        // In single player, we handle it locally
+        setGameState(prev => ({
+          ...prev,
+          isRunning: false
+        }));
+      }
+    },
+    isMultiplayer,
+    playerId,
+    players,
+    updateScore,
+    reportDeath
   });
 
   useEffect(() => {

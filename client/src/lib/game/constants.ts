@@ -70,7 +70,9 @@ export const SLOW_FALL_FACTOR = 0.5; // Halves fall speed
 export const HEALTH_BOOST_AMOUNT = 50; // +50% health
 
 // Multiplayer constants
-export const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:5000';
+export const SERVER_URL = typeof window !== 'undefined' 
+  ? window.location.origin  // Use the same origin as the client in production/Replit
+  : 'http://localhost:5000'; // Fallback for SSR or development
 export const DEFAULT_GAME_ID = 'default-game';
 export const MAX_PLAYERS = 10;
 export const PLAYER_COLORS = [

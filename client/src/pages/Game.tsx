@@ -1,11 +1,9 @@
 import { useRef } from 'react';
-import { useMultiplayer } from '@/contexts/MultiplayerContext';
 import { useGameState } from '@/contexts/GameStateContext';
 import GameComponent from '@/components/game/Game';
 
 const GamePage = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const { isMultiplayer, leaveGame } = useMultiplayer();
   const { gameState, resetGame } = useGameState();
 
   return (

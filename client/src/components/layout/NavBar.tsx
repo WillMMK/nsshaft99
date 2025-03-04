@@ -30,6 +30,12 @@ const NavBar: React.FC = () => {
                 Profile
               </a>
             </Link>
+            
+            <Link href="/socket-test">
+              <a className={`font-pixel text-sm ${location === '/socket-test' ? 'text-game-yellow' : 'text-game-light hover:text-game-yellow'}`}>
+                Socket Test
+              </a>
+            </Link>
           </div>
         </div>
       </div>

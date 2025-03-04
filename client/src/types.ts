@@ -4,6 +4,7 @@ export interface Player {
   name: string;
   score: number;
   isAlive: boolean;
+  isAI?: boolean;
 }
 
 // Attack types that players can send to others

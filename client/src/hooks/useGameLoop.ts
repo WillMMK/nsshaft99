@@ -1,7 +1,6 @@
 import { useRef, useEffect, useCallback, useState } from 'react';
 import { GameEngine } from '@/lib/game/engine';
-import { useMultiplayer } from '@/contexts/MultiplayerContext';
-import { AttackType } from '@/types';
+import { Player, AttackType } from '@/types';
 
 interface UseGameLoopProps {
   canvasRef: React.RefObject<HTMLCanvasElement>;
@@ -12,6 +11,10 @@ interface UseGameLoopProps {
   gameActive: boolean;
   onGameOver: () => void;
   isMultiplayer?: boolean;
+  playerId?: string | null;
+  players?: Record<string, Player>;
+  updateScore?: (score: number) => void;
+  reportDeath?: () => void;
 }
 
 export default function useGameLoop({
@@ -22,17 +25,15 @@ export default function useGameLoop({
   setScore,
   gameActive,
   onGameOver,
-  isMultiplayer = false
+  isMultiplayer = false,
+  playerId = null,
+  players = {},
+  updateScore = () => {},
+  reportDeath = () => {}
 }: UseGameLoopProps) {
   const gameEngineRef = useRef<GameEngine | null>(null);
   const animationFrameIdRef = useRef<number>(0);
   const [isInitialized, setIsInitialized] = useState<boolean>(false);
-  const { 
-    playerId, 
-    players, 
-    updateScore,
-    reportDeath
-  } = useMultiplayer();
   
   // Track processed attacks to avoid applying them multiple times
   const processedAttackIds = useRef<Set<string>>(new Set());
@@ -81,26 +82,41 @@ export default function useGameLoop({
     setIsInitialized(false);
   }, []);
 
-  // Initialize game engine only once when gameActive becomes true
+  // Initialize game engine and start game loop
   useEffect(() => {
-    // Only initialize if gameActive is true, canvas exists, and we haven't initialized yet
-    if (gameActive && canvasRef.current && !isInitialized) {
-      console.log("Game active changed:", gameActive);
-      console.log("Initializing new game engine");
-      
+    // Only initialize if the game is active and not already initialized
+    if (gameActive && !isInitialized && canvasRef.current) {
       try {
-        // Create a new game engine
+        console.log("Initializing game engine");
+        
+        // Create game engine
         gameEngineRef.current = new GameEngine(
-          canvasRef.current,
-          setHealth,
-          setScore,
-          () => {
-            // Report death to server if in multiplayer mode
-            if (isMultiplayer) {
-              reportDeath();
+          canvasRef.current as HTMLCanvasElement,
+          (newHealth: number) => {
+            setHealth(newHealth);
+            
+            // Check if player died
+            if (newHealth <= 0) {
+              console.log("Player died");
+              
+              if (isMultiplayer) {
+                // Report death to server in multiplayer mode
+                reportDeath();
+              }
+              
+              // Call onGameOver callback
+              onGameOver();
             }
-            onGameOver();
           },
+          (newScore: number) => {
+            setScore(newScore);
+            
+            // Update score on server in multiplayer mode
+            if (isMultiplayer) {
+              updateScore(newScore);
+            }
+          },
+          onGameOver,
           isMultiplayer
         );
         
@@ -116,7 +132,7 @@ export default function useGameLoop({
     else if (!gameActive && isInitialized) {
       cleanupGameLoop();
     }
-  }, [canvasRef, gameActive, setHealth, setScore, onGameOver, gameLoop, isMultiplayer, reportDeath, cleanupGameLoop, isInitialized]);
+  }, [canvasRef, gameActive, setHealth, setScore, onGameOver, gameLoop, isMultiplayer, reportDeath, cleanupGameLoop, isInitialized, updateScore]);
 
   // Clean up on unmount
   useEffect(() => {

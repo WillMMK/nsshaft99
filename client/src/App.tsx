@@ -13,6 +13,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { MultiplayerProvider } from "@/contexts/MultiplayerContext";
 import { GameStateProvider } from "@/contexts/GameStateContext";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
+import SocketTest from "@/pages/SocketTest";
 
 function Router() {
   return (
@@ -32,6 +33,7 @@ function Router() {
             <Profile />
           </ProtectedRoute>
         )} />
+        <Route path="/socket-test" component={SocketTest} />
         <Route component={NotFound} />
       </Switch>
     </>

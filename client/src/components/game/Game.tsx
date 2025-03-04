@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useMultiplayer } from '@/contexts/MultiplayerContext';
 import { useGameState } from '@/contexts/GameStateContext';
 import GameCanvas from './GameCanvas';
 import StartScreen from './StartScreen';
@@ -9,8 +8,10 @@ import { AttackType } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { doc, updateDoc, increment, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase/firebase';
+import { MultiplayerProvider, useMultiplayer } from '@/contexts/MultiplayerContext';
 
-const Game: React.FC = () => {
+// Create a wrapper component that uses the useMultiplayer hook
+const GameWithMultiplayer: React.FC = () => {
   const { isMultiplayer, setIsMultiplayer, onReceiveAttack, onGameStarted, onGameOver, leaveGame } = useMultiplayer();
   const { gameState, setGameState, resetGame } = useGameState();
   const { currentUser, userProfile, refreshUserProfile } = useAuth();
@@ -28,254 +29,155 @@ const Game: React.FC = () => {
       console.log('Received attack:', data);
       
       // Apply the attack effect based on the type
-      switch (data.attackType) {
-        case AttackType.SPIKE_PLATFORM:
-          setGameState(prev => ({
-            ...prev,
-            activeEffects: {
-              ...prev.activeEffects,
-              spikePlatforms: true
-            },
-            attackNotification: {
-              attackerName: data.attackerName,
-              attackType: data.attackType,
-              timestamp: Date.now()
-            }
-          }));
-          
-          // Clear the effect after a duration
-          setTimeout(() => {
-            setGameState(prev => ({
-              ...prev,
-              activeEffects: {
-                ...prev.activeEffects,
-                spikePlatforms: false
-              }
-            }));
-          }, 10000); // 10 seconds
-          break;
-          
-        case AttackType.SPEED_UP:
-          setGameState(prev => ({
-            ...prev,
-            activeEffects: {
-              ...prev.activeEffects,
-              speedUp: true
-            },
-            attackNotification: {
-              attackerName: data.attackerName,
-              attackType: data.attackType,
-              timestamp: Date.now()
-            }
-          }));
-          
-          // Clear the effect after a duration
-          setTimeout(() => {
-            setGameState(prev => ({
-              ...prev,
-              activeEffects: {
-                ...prev.activeEffects,
-                speedUp: false
-              }
-            }));
-          }, 8000); // 8 seconds
-          break;
-          
-        case AttackType.NARROW_PLATFORM:
-          setGameState(prev => ({
-            ...prev,
-            activeEffects: {
-              ...prev.activeEffects,
-              narrowPlatforms: true
-            },
-            attackNotification: {
-              attackerName: data.attackerName,
-              attackType: data.attackType,
-              timestamp: Date.now()
-            }
-          }));
-          
-          // Clear the effect after a duration
-          setTimeout(() => {
-            setGameState(prev => ({
-              ...prev,
-              activeEffects: {
-                ...prev.activeEffects,
-                narrowPlatforms: false
-              }
-            }));
-          }, 12000); // 12 seconds
-          break;
-          
-        case AttackType.REVERSE_CONTROLS:
-          setGameState(prev => ({
-            ...prev,
-            activeEffects: {
-              ...prev.activeEffects,
-              reverseControls: true
-            },
-            attackNotification: {
-              attackerName: data.attackerName,
-              attackType: data.attackType,
-              timestamp: Date.now()
-            }
-          }));
-          
-          // Clear the effect after a duration
-          setTimeout(() => {
-            setGameState(prev => ({
-              ...prev,
-              activeEffects: {
-                ...prev.activeEffects,
-                reverseControls: false
-              }
-            }));
-          }, 6000); // 6 seconds
-          break;
-      }
+      setGameState(prev => ({
+        ...prev,
+        attackNotification: {
+          attackerId: data.attackerId,
+          attackerName: data.attackerName,
+          attackType: data.attackType,
+          timestamp: Date.now()
+        },
+        activeEffects: {
+          ...prev.activeEffects,
+          [data.attackType]: true
+        }
+      }));
+      
+      // Set a timeout to clear the effect
+      setTimeout(() => {
+        setGameState(prev => ({
+          ...prev,
+          activeEffects: {
+            ...prev.activeEffects,
+            [data.attackType]: false
+          }
+        }));
+      }, 5000); // Effects last for 5 seconds
     };
-
+    
+    // Register the attack handler
     const unsubscribe = onReceiveAttack(handleAttack);
-    return unsubscribe;
+    
+    return () => {
+      unsubscribe();
+    };
   }, [isMultiplayer, onReceiveAttack, setGameState]);
-
+  
   // Handle game started event
   useEffect(() => {
     if (!isMultiplayer) return;
-
+    
     const handleGameStarted = () => {
-      console.log('Game started!');
+      console.log('Game started event received');
       setShowLobby(false);
-      resetGame();
-      setGameState(prev => ({
-        ...prev,
-        isRunning: true,
-        isPaused: false
-      }));
-    };
-
-    const unsubscribe = onGameStarted(handleGameStarted);
-    return unsubscribe;
-  }, [isMultiplayer, onGameStarted, resetGame, setGameState]);
-
-  // Handle game over event
-  useEffect(() => {
-    if (!isMultiplayer) return;
-
-    const handleGameOver = (data: { winnerId: string; winnerName: string }) => {
-      console.log('Game over! Winner:', data.winnerName);
-      setWinner({
-        id: data.winnerId,
-        name: data.winnerName
-      });
-      setShowGameOver(true);
-      setGameState(prev => ({
-        ...prev,
-        isRunning: false,
-        isPaused: true
-      }));
       
-      // Update user stats in Firestore
-      updateUserStats();
-    };
-
-    const unsubscribe = onGameOver(handleGameOver);
-    return unsubscribe;
-  }, [isMultiplayer, onGameOver, setGameState]);
-  
-  // Watch for game state changes to detect game over in single player mode
-  useEffect(() => {
-    // If the game was running but is now not running, and we're not in multiplayer mode,
-    // and we're not showing the game over screen yet, then show it
-    if (!gameState.isRunning && !isMultiplayer && !showGameOver && gameState.score > 0) {
-      setShowGameOver(true);
-      updateUserStats();
-    }
-  }, [gameState.isRunning, isMultiplayer, showGameOver, gameState.score]);
-  
-  // Update user stats when game ends
-  const updateUserStats = async () => {
-    const finalScore = gameState.score;
-    
-    if (currentUser && finalScore > 0) {
-      try {
-        const userRef = doc(db, 'users', currentUser.uid);
-        
-        // Get the latest user data to ensure we have the current high score
-        const userDoc = await getDoc(userRef);
-        
-        const userData = userDoc.data();
-        const currentHighScore = userData?.highScore || 0;
-        
-        // Only update if the new score is higher
-        if (finalScore > currentHighScore) {
-          await updateDoc(userRef, {
-            highScore: finalScore,
-            gamesPlayed: increment(1),
-            totalScore: increment(finalScore)
-          });
-          
-          // Refresh the user profile to show the updated high score
-          refreshUserProfile();
-        } else {
-          // Just update games played and total score
-          await updateDoc(userRef, {
-            gamesPlayed: increment(1),
-            totalScore: increment(finalScore)
-          });
-        }
-      } catch (error) {
-        console.error("Error updating user stats:", error);
-      }
-    }
-  };
-
-  const handleStartGame = () => {
-    console.log('Starting single player game');
-    
-    // First, ensure the game is stopped
-    setGameState(prev => ({
-      ...prev,
-      isRunning: false
-    }));
-    
-    // Use setTimeout to ensure the game loop has time to clean up
-    setTimeout(() => {
-      // Ensure multiplayer is off
-      setIsMultiplayer(false);
-      
-      // Reset game state completely
+      // Reset all active effects
       setGameState(prev => ({
         ...prev,
-        score: 0,
-        health: 100,
         activeEffects: {
           spikePlatforms: false,
           speedUp: false,
           narrowPlatforms: false,
           reverseControls: false
         },
-        attackNotification: null
+        attackNotification: null,
+        score: 0,
+        health: 100,
+        isRunning: true,
+        isPaused: false
+      }));
+    };
+    
+    // Register the game started handler
+    const unsubscribe = onGameStarted(handleGameStarted);
+    
+    return () => {
+      unsubscribe();
+    };
+  }, [isMultiplayer, onGameStarted, setGameState]);
+  
+  // Handle game over event
+  useEffect(() => {
+    if (!isMultiplayer) return;
+    
+    const handleGameOver = (data: { winnerId: string; winnerName: string }) => {
+      console.log('Game over event received:', data);
+      
+      setWinner({
+        id: data.winnerId,
+        name: data.winnerName
+      });
+      
+      setGameState(prev => ({
+        ...prev,
+        isRunning: false
       }));
       
-      // Use another setTimeout to ensure state updates have been processed
-      setTimeout(() => {
-        // Start the game
-        setGameState(prev => ({
-          ...prev,
-          isRunning: true,
-          isPaused: false
-        }));
-      }, 100);
-    }, 100);
+      setShowGameOver(true);
+    };
+    
+    // Register the game over handler
+    const unsubscribe = onGameOver(handleGameOver);
+    
+    return () => {
+      unsubscribe();
+    };
+  }, [isMultiplayer, onGameOver, setGameState]);
+  
+  // Update user stats when game ends
+  const updateUserStats = async () => {
+    if (!currentUser || !gameState.score) return;
+    
+    try {
+      const userDocRef = doc(db, 'users', currentUser.uid);
+      
+      // Get current stats
+      const userDoc = await getDoc(userDocRef);
+      const userData = userDoc.data();
+      
+      // Update stats
+      await updateDoc(userDocRef, {
+        totalGames: increment(1),
+        totalScore: increment(gameState.score),
+        highScore: userData && userData.highScore > gameState.score 
+          ? userData.highScore 
+          : gameState.score
+      });
+      
+      // Refresh user profile to show updated stats
+      refreshUserProfile();
+      
+    } catch (error) {
+      console.error('Error updating user stats:', error);
+    }
   };
-
+  
+  // Handle game over
+  useEffect(() => {
+    if (!gameState.isRunning && gameState.score > 0 && !showGameOver) {
+      updateUserStats();
+      setShowGameOver(true);
+    }
+  }, [gameState.isRunning, gameState.score]);
+  
+  // Handle start game
+  const handleStartGame = () => {
+    resetGame();
+    setGameState(prev => ({
+      ...prev,
+      isRunning: true,
+      isPaused: false
+    }));
+  };
+  
+  // Handle start multiplayer
   const handleStartMultiplayer = () => {
     console.log('Starting multiplayer mode');
     setIsMultiplayer(true);
     setShowLobby(true);
   };
-
+  
+  // Handle join multiplayer from game over
   const handleJoinMultiplayer = () => {
     console.log('Joining multiplayer from game over');
     // First reset the game state
@@ -285,42 +187,28 @@ const Game: React.FC = () => {
     setIsMultiplayer(true);
     setShowLobby(true);
   };
-
+  
+  // Handle join game
   const handleJoinGame = () => {
     console.log('Joining multiplayer game');
     setShowLobby(false);
-    resetGame();
-    setGameState(prev => ({
-      ...prev,
-      isRunning: true,
-      isPaused: false
-    }));
   };
-
+  
+  // Handle cancel join
   const handleCancelJoin = () => {
-    console.log('Canceling multiplayer join');
-    setShowLobby(false);
+    console.log('Cancelling multiplayer join');
     setIsMultiplayer(false);
+    setShowLobby(false);
+    leaveGame();
   };
-
+  
+  // Handle play again
   const handlePlayAgain = () => {
-    console.log('Starting handlePlayAgain');
-    
-    // Set transitioning state to prevent showing StartScreen
+    setShowGameOver(false);
     setIsTransitioning(true);
     
-    // First, stop the current game completely
-    setGameState(prev => ({
-      ...prev,
-      isRunning: false
-    }));
-    
-    // Use setTimeout to ensure the game loop has time to clean up
+    // Use setTimeout to ensure state updates have been processed
     setTimeout(() => {
-      // Clear the game over state and reset multiplayer mode
-      setShowGameOver(false);
-      setIsMultiplayer(false); // Ensure the new game is single-player
-      
       // Reset all active effects
       setGameState(prev => {
         console.log('Resetting initial game state');
@@ -355,43 +243,51 @@ const Game: React.FC = () => {
       }, 100);
     }, 100);
   };
-
+  
   const handleGameOver = () => {
     setGameState(prev => ({
       ...prev,
       isRunning: false
     }));
-    
-    if (isMultiplayer) {
-      leaveGame();
-    } else {
-      setShowGameOver(true);
-      updateUserStats();
-    }
   };
-
+  
   return (
-    <div ref={gameRef} className="relative w-full h-full overflow-hidden">
-      {!gameState.isRunning && !showGameOver && !showLobby && !isTransitioning && (
+    <div ref={gameRef} className="relative w-full h-full">
+      {!gameState.isRunning && !showGameOver && !showLobby && (
         <StartScreen 
           onStartGame={handleStartGame} 
           onStartMultiplayer={handleStartMultiplayer} 
         />
       )}
       
-      <GameCanvas onJoinMultiplayer={handleJoinMultiplayer} />
-      
       {showLobby && (
-        <MultiplayerLobby onJoin={handleJoinGame} onCancel={handleCancelJoin} />
+        <MultiplayerLobby 
+          onJoin={handleJoinGame} 
+          onCancel={handleCancelJoin} 
+        />
       )}
+      
+      <GameCanvas 
+        onJoinMultiplayer={handleJoinMultiplayer}
+      />
       
       {showGameOver && (
         <GameOverScreen 
-          winner={winner} 
+          winner={winner}
           onPlayAgain={handlePlayAgain} 
+          onMultiplayer={handleJoinMultiplayer}
         />
       )}
     </div>
+  );
+};
+
+// Main Game component that doesn't use the useMultiplayer hook directly
+const Game: React.FC = () => {
+  return (
+    <MultiplayerProvider>
+      <GameWithMultiplayer />
+    </MultiplayerProvider>
   );
 };
 
