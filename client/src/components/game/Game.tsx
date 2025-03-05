@@ -207,6 +207,18 @@ const GameWithMultiplayer: React.FC = () => {
   // Handle play again
   const handlePlayAgain = () => {
     setShowGameOver(false);
+    
+    if (isMultiplayer) {
+      // In multiplayer mode, navigate back to the multiplayer lobby with 60s countdown
+      resetGame();
+      setIsMultiplayer(true);
+      setShowLobby(true);
+      // Leave current game and join the lobby
+      leaveGame();
+      return;
+    }
+    
+    // Single player mode flow continues as before
     setIsTransitioning(true);
     
     // Use setTimeout to ensure state updates have been processed
@@ -244,6 +256,30 @@ const GameWithMultiplayer: React.FC = () => {
         console.log('Finished handlePlayAgain');
       }, 100);
     }, 100);
+  };
+  
+  // Handle back to main menu
+  const handleBackToMainMenu = () => {
+    console.log('Navigating back to main menu');
+    setShowGameOver(false);
+    
+    // Reset game state
+    resetGame();
+    
+    // Leave multiplayer mode if active
+    if (isMultiplayer) {
+      setIsMultiplayer(false);
+      leaveGame();
+    }
+    
+    // Show start screen
+    setIsDead(false);
+    setShowLobby(false);
+    setGameState(prev => ({
+      ...prev,
+      isRunning: false,
+      isPaused: false
+    }));
   };
   
   const handleGameOver = () => {
@@ -293,6 +329,7 @@ const GameWithMultiplayer: React.FC = () => {
           winner={winner}
           onPlayAgain={handlePlayAgain} 
           onMultiplayer={handleJoinMultiplayer}
+          onBackToMainMenu={handleBackToMainMenu}
         />
       )}
     </div>

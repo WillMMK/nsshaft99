@@ -140,9 +140,7 @@ const MultiplayerLobby: React.FC<MultiplayerLobbyProps> = ({ onJoin, onCancel })
                 {Object.keys(players).length} / {MAX_PLAYERS_PER_GAME} players
               </p>
               <p className="text-game-light text-sm mt-1">
-                {countdownSeconds === null 
-                  ? `Game will start automatically when ${MIN_PLAYERS_TO_START} players join`
-                  : 'Game will start when the countdown ends'}
+                Game will start when the countdown ends
               </p>
             </div>
             

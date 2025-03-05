@@ -6,9 +6,10 @@ interface GameOverScreenProps {
   winner: { id: string; name: string } | null;
   onPlayAgain: () => void;
   onMultiplayer?: () => void;
+  onBackToMainMenu: () => void;
 }
 
-const GameOverScreen: React.FC<GameOverScreenProps> = ({ winner, onPlayAgain, onMultiplayer }) => {
+const GameOverScreen: React.FC<GameOverScreenProps> = ({ winner, onPlayAgain, onMultiplayer, onBackToMainMenu }) => {
   const { userProfile } = useAuth();
   const { gameState } = useGameState();
   const isMultiplayer = !!winner;
@@ -39,12 +40,19 @@ const GameOverScreen: React.FC<GameOverScreenProps> = ({ winner, onPlayAgain, on
           </div>
         )}
         
-        <div className="flex space-x-4 mt-6">
+        <div className="flex flex-col space-y-3 mt-6">
           <button 
             onClick={onPlayAgain}
             className="bg-game-blue hover:bg-game-blue-dark text-white font-bold py-2 px-4 rounded"
           >
             Play Again
+          </button>
+          
+          <button 
+            onClick={onBackToMainMenu}
+            className="bg-game-red hover:bg-game-red-dark text-white font-bold py-2 px-4 rounded"
+          >
+            Back to Main Menu
           </button>
           
           {!isMultiplayer && onMultiplayer && (
