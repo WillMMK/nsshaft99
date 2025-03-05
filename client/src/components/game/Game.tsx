@@ -12,13 +12,14 @@ import { MultiplayerProvider, useMultiplayer } from '@/contexts/MultiplayerConte
 
 // Create a wrapper component that uses the useMultiplayer hook
 const GameWithMultiplayer: React.FC = () => {
-  const { isMultiplayer, setIsMultiplayer, onReceiveAttack, onGameStarted, onGameOver, leaveGame } = useMultiplayer();
+  const { isMultiplayer, setIsMultiplayer, onReceiveAttack, onGameStarted, onGameOver, leaveGame, reportDeath } = useMultiplayer();
   const { gameState, setGameState, resetGame } = useGameState();
   const { currentUser, userProfile, refreshUserProfile } = useAuth();
   const [showLobby, setShowLobby] = useState<boolean>(false);
   const [showGameOver, setShowGameOver] = useState<boolean>(false);
   const [winner, setWinner] = useState<{ id: string; name: string } | null>(null);
   const [isTransitioning, setIsTransitioning] = useState<boolean>(false);
+  const [isDead, setIsDead] = useState<boolean>(false);
   const gameRef = useRef<HTMLDivElement>(null);
 
   // Handle multiplayer attacks
@@ -114,6 +115,7 @@ const GameWithMultiplayer: React.FC = () => {
       }));
       
       setShowGameOver(true);
+      setIsDead(false); // Reset death state
     };
     
     // Register the game over handler
@@ -245,15 +247,23 @@ const GameWithMultiplayer: React.FC = () => {
   };
   
   const handleGameOver = () => {
-    setGameState(prev => ({
-      ...prev,
-      isRunning: false
-    }));
+    if (isMultiplayer) {
+      setIsDead(true); // Mark player as dead but keep game running for updates
+      // Report death to server so it can determine if game is over
+      console.log('Reporting player death to server');
+      reportDeath();
+    } else {
+      setGameState(prev => ({
+        ...prev,
+        isRunning: false
+      }));
+      setShowGameOver(true);
+    }
   };
   
   return (
     <div ref={gameRef} className="relative w-full h-full">
-      {!gameState.isRunning && !showGameOver && !showLobby && (
+      {!gameState.isRunning && !showGameOver && !showLobby && !isDead && (
         <StartScreen 
           onStartGame={handleStartGame} 
           onStartMultiplayer={handleStartMultiplayer} 
@@ -269,7 +279,14 @@ const GameWithMultiplayer: React.FC = () => {
       
       <GameCanvas 
         onJoinMultiplayer={handleJoinMultiplayer}
+        onGameOver={handleGameOver}
       />
+      
+      {isDead && !showGameOver && (
+        <div className="absolute top-0 left-0 w-full h-full flex items-center justify-center bg-black bg-opacity-50">
+          <p className="text-white text-2xl">You died. Waiting for the game to end...</p>
+        </div>
+      )}
       
       {showGameOver && (
         <GameOverScreen 

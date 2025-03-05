@@ -683,17 +683,23 @@ export class GameEngine {
     const lowestPlatformY = this.platforms.length > 0
       ? this.platforms.reduce((lowest, current) => current.y > lowest.y ? current : lowest, this.platforms[0]).y
       : this.canvas.height;
-    if (this.character.y > lowestPlatformY + this.canvas.height) {
-      this.gameActive = false;
-      this.onGameOver();
-    }
-    if (this.health <= 0) {
-      this.gameActive = false;
-      this.onGameOver();
-    }
-    if (this.character.y > this.cameraY + this.canvas.height) {
-      this.gameActive = false;
-      this.onGameOver();
+    
+    // In single player, any death condition triggers game over
+    if (!this.isMultiplayer) {
+      if (this.character.y > lowestPlatformY + this.canvas.height ||
+          this.health <= 0 ||
+          this.character.y > this.cameraY + this.canvas.height) {
+        this.gameActive = false;
+        this.onGameOver();
+      }
+    } else {
+      // In multiplayer, only trigger game over if player falls off screen
+      // Health reaching 0 is handled separately to keep game running
+      if (this.character.y > lowestPlatformY + this.canvas.height ||
+          this.character.y > this.cameraY + this.canvas.height) {
+        this.gameActive = false;
+        this.onGameOver();
+      }
     }
   }
 

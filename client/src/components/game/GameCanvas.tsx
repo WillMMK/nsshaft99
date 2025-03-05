@@ -10,6 +10,7 @@ import AttackButton from '@/components/multiplayer/AttackButton';
 
 interface GameCanvasProps {
   onJoinMultiplayer: () => void;
+  onGameOver: () => void;
 }
 
 const GameCanvas: React.FC<GameCanvasProps> = ({ onJoinMultiplayer }) => {
@@ -59,7 +60,11 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ onJoinMultiplayer }) => {
     gameActive: isRunning && !isPaused,
     onGameOver: () => {
       if (isMultiplayer) {
-        // In multiplayer, the game over is handled by the server
+        // In multiplayer, report death to the server
+        console.log('Player died in multiplayer, reporting to server');
+        reportDeath();
+        // Call the parent component's onGameOver to update UI state
+        handleGameOver();
       } else {
         // In single player, we handle it locally
         setGameState(prev => ({

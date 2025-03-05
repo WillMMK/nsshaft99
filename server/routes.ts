@@ -93,71 +93,66 @@ function addAIPlayers(gameId: string, count: number) {
 
 // Start a game countdown
 function startGameCountdown(io: SocketIOServer, gameId: string) {
-  console.log(`Starting countdown for game ${gameId}`);
-  
-  // Initialize countdown
+  // Ensure game exists
+  if (!activeGames[gameId]) {
+    console.log(`Game ${gameId} does not exist, cannot start countdown`);
+    return;
+  }
+
+  // Initialize or reset countdown
   if (!gameCountdowns[gameId]) {
-    gameCountdowns[gameId] = {
-      secondsLeft: 60, // 60 seconds countdown
-      timer: null
-    };
+    gameCountdowns[gameId] = { secondsLeft: 60, timer: null };
+  } else {
+    gameCountdowns[gameId].secondsLeft = 60;
+    if (gameCountdowns[gameId].timer) {
+      clearInterval(gameCountdowns[gameId].timer as NodeJS.Timeout);
+      gameCountdowns[gameId].timer = null; // Ensure timer is nullified
+    }
   }
-  
-  // Clear any existing timer
-  if (gameCountdowns[gameId].timer) {
-    clearInterval(gameCountdowns[gameId].timer as NodeJS.Timeout);
-  }
-  
-  // Start a new countdown
+
   gameCountdowns[gameId].timer = setInterval(() => {
-    // Check if the game still exists
     if (!activeGames[gameId]) {
       console.log(`Game ${gameId} no longer exists, stopping countdown`);
-      if (gameCountdowns[gameId] && gameCountdowns[gameId].timer) {
+      if (gameCountdowns[gameId]?.timer) {
         clearInterval(gameCountdowns[gameId].timer as NodeJS.Timeout);
-        delete gameCountdowns[gameId];
       }
+      delete gameCountdowns[gameId];
       return;
     }
-    
-    // Decrement countdown
+
+    console.log(`Tick for ${gameId}: secondsLeft=${gameCountdowns[gameId].secondsLeft}`);
     gameCountdowns[gameId].secondsLeft--;
-    
-    // Emit countdown update to all players in the game
+    const humanPlayers = Object.values(activeGames[gameId].players).filter(p => !p.isAI);
+    const aiPlayers = Object.values(activeGames[gameId].players).filter(p => p.isAI);
+    const totalPlayers = humanPlayers.length + aiPlayers.length;
+
     io.to(gameId).emit('countdown_update', {
       secondsLeft: gameCountdowns[gameId].secondsLeft,
-      message: 'Waiting for more players...'
+      message: humanPlayers.length === 0 ? 'Waiting for players to join...' : 'Game starting soon...'
     });
-    
-    // Check if countdown has reached zero
+
     if (gameCountdowns[gameId].secondsLeft <= 0) {
-      clearInterval(gameCountdowns[gameId].timer as NodeJS.Timeout);
-      gameCountdowns[gameId].timer = null;
-      
-      // Check for at least 2 human players
-      const humanPlayerCount = Object.values(activeGames[gameId].players).filter(p => !p.isAI).length;
-      
-      if (humanPlayerCount >= 2) {
-        // Start the game
+      if (gameCountdowns[gameId].timer) {
+        clearInterval(gameCountdowns[gameId].timer as NodeJS.Timeout);
+        gameCountdowns[gameId].timer = null;
+      }
+
+      console.log(`Countdown reached zero for ${gameId}: totalPlayers=${totalPlayers}`);
+      if (totalPlayers >= 2) {
         startGame(io, gameId);
       } else {
-        // Not enough human players, restart countdown
-        console.log(`Not enough human players (${humanPlayerCount}) in game ${gameId}, restarting countdown`);
-        gameCountdowns[gameId].secondsLeft = 60;
-        startGameCountdown(io, gameId);
-      }
-    }
-    
-    // Check for AI players at 30 seconds
-    if (gameCountdowns[gameId].secondsLeft === 30) {
-      const humanPlayerCount = Object.values(activeGames[gameId].players).filter(p => !p.isAI).length;
-      if (humanPlayerCount < 2) {
-        console.log(`Waiting for more human players in game ${gameId}`);
-        // Notify players that we're waiting for more human players
-        io.to(gameId).emit('countdown_update', {
-          secondsLeft: gameCountdowns[gameId].secondsLeft,
-          message: 'Waiting for more players to join...'
-        });
+        const aiNeeded = 2 - totalPlayers;
+        if (aiNeeded > 0) {
+          console.log(`Adding ${aiNeeded} AI players to ${gameId}`);
+          addAIPlayers(gameId, aiNeeded);
+        }
+        // Recheck players after adding AI
+        const updatedTotal = Object.values(activeGames[gameId].players).length;
+        if (updatedTotal >= 2) {
+          startGame(io, gameId);
+        } else {
+          gameCountdowns[gameId].secondsLeft = 60; // Reset without recursion
+        }
       }
     }
   }, 1000);
@@ -170,37 +165,33 @@ function startGame(io: SocketIOServer, gameId: string) {
     return;
   }
   
-  // Check if we have at least 2 players (including AI)
-  const playerCount = Object.keys(activeGames[gameId].players).length;
-  if (playerCount < 2) {
-    console.log(`Cannot start game ${gameId} - not enough players (${playerCount})`);
-    
+  // Get current player counts
+  const players = activeGames[gameId].players;
+  const totalPlayers = Object.keys(players).length;
+  const humanPlayers = Object.values(players).filter(p => !p.isAI);
+  const aiPlayers = Object.values(players).filter(p => p.isAI);
+  
+  console.log(`Starting game ${gameId} with ${humanPlayers.length} human players and ${aiPlayers.length} AI players`);
+  
+  // Ensure we have enough players (at least 2 total)
+  if (totalPlayers < 2) {
+    console.log(`Cannot start game ${gameId} - not enough players (${totalPlayers})`);
     // Add AI players if needed
-    if (playerCount === 1) {
-      console.log(`Adding AI player to game ${gameId}`);
-      addAIPlayers(gameId, 1);
+    const aiNeeded = 2 - totalPlayers;
+    if (aiNeeded > 0) {
+      console.log(`Adding ${aiNeeded} AI players to game ${gameId}`);
+      addAIPlayers(gameId, aiNeeded);
       
-      // Notify players about the new AI player
-      const aiPlayer = Object.values(activeGames[gameId].players).find(p => p.isAI);
-      if (aiPlayer) {
+      // Notify about new AI players
+      const newAiPlayers = Object.values(activeGames[gameId].players).filter(p => p.isAI);
+      newAiPlayers.forEach(aiPlayer => {
         io.to(gameId).emit('player_joined', {
           player: aiPlayer,
           players: activeGames[gameId].players
         });
-      }
-    } else {
-      // Restart countdown
-      console.log(`Restarting countdown for game ${gameId}`);
-      if (gameCountdowns[gameId]) {
-        gameCountdowns[gameId].secondsLeft = 60;
-      } else {
-        startGameCountdown(io, gameId);
-      }
-      return;
+      });
     }
   }
-  
-  console.log(`Starting game ${gameId} with ${Object.keys(activeGames[gameId].players).length} players`);
   
   // Set game as active
   activeGames[gameId].isActive = true;
@@ -216,43 +207,65 @@ function startGame(io: SocketIOServer, gameId: string) {
   // Start AI player simulation if there are any AI players
   const hasAIPlayers = Object.values(activeGames[gameId].players).some(player => player.isAI);
   if (hasAIPlayers) {
+    console.log(`Starting AI simulation for game ${gameId}`);
     startAIPlayerSimulation(io, gameId);
   }
 }
 
 // Simulate AI player actions
 function startAIPlayerSimulation(io: SocketIOServer, gameId: string) {
+  console.log(`Starting AI simulation for game ${gameId}`);
+  let aiUpdateInterval: NodeJS.Timeout | null = null;
+
   // Create a timer to update AI players
-  const aiUpdateInterval = setInterval(() => {
+  aiUpdateInterval = setInterval(() => {
+    // Check if game exists and is still active
     if (!activeGames[gameId] || !activeGames[gameId].isActive) {
-      clearInterval(aiUpdateInterval);
+      console.log(`Stopping AI simulation for game ${gameId} - game inactive or ended`);
+      if (aiUpdateInterval) {
+        clearInterval(aiUpdateInterval);
+        aiUpdateInterval = null;
+      }
       return;
     }
-    
-    // Update each AI player
-    Object.values(activeGames[gameId].players)
-      .filter(p => p.isAI)
-      .forEach(aiPlayer => {
-        // Random score increase
-        aiPlayer.score += Math.floor(Math.random() * 10);
-        
-        // Random movement
-        aiPlayer.x += (Math.random() * 10 - 5);
-        aiPlayer.facingDirection = Math.random() > 0.5 ? 1 : -1;
-        
-        // Occasionally send attacks to random players
+
+    // Get alive AI players only
+    const aliveAIPlayers = Object.values(activeGames[gameId].players)
+      .filter(p => p.isAI && p.isAlive);
+
+    if (aliveAIPlayers.length === 0) {
+      console.log(`No alive AI players in game ${gameId}, stopping simulation`);
+      if (aiUpdateInterval) {
+        clearInterval(aiUpdateInterval);
+        aiUpdateInterval = null;
+      }
+      return;
+    }
+
+    // Update each alive AI player
+    aliveAIPlayers.forEach(aiPlayer => {
+      // Random score increase
+      aiPlayer.score += Math.floor(Math.random() * 10);
+
+      // Random movement
+      aiPlayer.x += (Math.random() * 10 - 5);
+      aiPlayer.facingDirection = Math.random() > 0.5 ? 1 : -1;
+
+      // Only send attacks if the game is still active
+      if (activeGames[gameId].isActive) {
+        // Occasionally send attacks to random alive players
         if (Math.random() < 0.05) {
-          const realPlayers = Object.values(activeGames[gameId].players)
-            .filter(p => !p.isAI);
-            
-          if (realPlayers.length > 0) {
-            const targetIndex = Math.floor(Math.random() * realPlayers.length);
-            const targetPlayer = realPlayers[targetIndex];
-            
+          const alivePlayers = Object.values(activeGames[gameId].players)
+            .filter(p => !p.isAI && p.isAlive);
+
+          if (alivePlayers.length > 0) {
+            const targetIndex = Math.floor(Math.random() * alivePlayers.length);
+            const targetPlayer = alivePlayers[targetIndex];
+
             // Create a random attack
             const attackTypes = Object.values(AttackType);
             const randomAttackType = attackTypes[Math.floor(Math.random() * attackTypes.length)];
-            
+
             // Send the attack
             io.to(targetPlayer.id).emit('receive_attack', {
               attackerId: aiPlayer.id,
@@ -261,13 +274,24 @@ function startAIPlayerSimulation(io: SocketIOServer, gameId: string) {
             });
           }
         }
-      });
-      
-    // Emit updated game state
-    io.to(gameId).emit('score_updated', {
-      players: activeGames[gameId].players
+      }
     });
+
+    // Only emit score updates if game is still active
+    if (activeGames[gameId].isActive) {
+      io.to(gameId).emit('score_updated', {
+        players: activeGames[gameId].players
+      });
+    }
   }, 1000);
+
+  // Return cleanup function
+  return () => {
+    if (aiUpdateInterval) {
+      clearInterval(aiUpdateInterval);
+      aiUpdateInterval = null;
+    }
+  };
 }
 
 // Helper function to find a game by player ID
@@ -699,6 +723,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const winner = alivePlayers[0];
           console.log(`Game ${game.id} has a winner: ${winner.name} (${winner.id})`);
           
+          // Set game as inactive first to stop AI simulation
+          game.isActive = false;
+          
           // Emit game over event to all players in the game
           io.to(game.id).emit('game_over', {
             winnerId: winner.id,
@@ -712,6 +739,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
             player.health = 100;
             player.isAlive = true; // Reset alive status for next round
           });
+          
+          // Clear any existing attacks
+          game.attacks = [];
           
           // Start countdown for next game
           startGameCountdown(io, game.id);

@@ -102,10 +102,13 @@ export default function useGameLoop({
               if (isMultiplayer) {
                 // Report death to server in multiplayer mode
                 reportDeath();
+                // Call onGameOver but keep game engine running
+                onGameOver();
+              } else {
+                // In single player, stop the game engine
+                gameEngineRef.current?.destroy();
+                onGameOver();
               }
-              
-              // Call onGameOver callback
-              onGameOver();
             }
           },
           (newScore: number) => {
