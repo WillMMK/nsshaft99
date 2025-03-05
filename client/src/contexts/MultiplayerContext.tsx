@@ -117,6 +117,17 @@ export const MultiplayerProvider: React.FC<{ children: ReactNode }> = ({ childre
           setPlayers(players);
         });
         
+        // Add handler for individual player updates
+        networkManager.onPlayerUpdated((data) => {
+          console.log('Received individual player update:', data.playerId);
+          
+          // Update only the specific player in the players state
+          setPlayers(prevPlayers => ({
+            ...prevPlayers,
+            [data.playerId]: data.playerState
+          }));
+        });
+        
         networkManager.onDisconnect(() => {
           console.log('Disconnected from server');
           setIsConnected(false);

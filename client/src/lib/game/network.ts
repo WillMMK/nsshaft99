@@ -264,24 +264,36 @@ export class NetworkManager {
     const handler = (data: { players: Record<string, Player> }) => {
       console.log('Received player list update:', data);
       
-      // Log detailed information about the players
-      const aiPlayers = Object.values(data.players).filter(p => p.isAI === true);
-      const humanPlayers = Object.values(data.players).filter(p => p.isAI !== true);
+      // Ensure players is an object
+      if (!data.players || typeof data.players !== 'object') {
+        console.error('Invalid player list update data:', data);
+        return;
+      }
       
       console.log(`Player list update details:
-        - Total players: ${Object.keys(data.players).length}
-        - Human players: ${humanPlayers.length}
-        - AI players: ${aiPlayers.length}
-        - Player IDs: ${Object.keys(data.players).join(', ')}
+        Total players: ${Object.keys(data.players).length}
+        AI players: ${Object.values(data.players).filter(p => p.isAI).length}
+        Human players: ${Object.values(data.players).filter(p => !p.isAI).length}
       `);
       
       callback(data.players);
     };
     
     this.socket.on('player_list_update', handler);
-    return () => {
-      this.socket?.off('player_list_update', handler);
+    return () => this.socket?.off('player_list_update', handler);
+  }
+
+  // Add handler for individual player updates
+  public onPlayerUpdated(callback: (data: { playerId: string; playerState: Player }) => void): () => void {
+    if (!this.socket) return () => {};
+    
+    const handler = (data: { playerId: string; playerState: Player }) => {
+      console.log('Received individual player update:', data.playerId);
+      callback(data);
     };
+    
+    this.socket.on('player_updated', handler);
+    return () => this.socket?.off('player_updated', handler);
   }
 
   // Register callback for receiving attacks
