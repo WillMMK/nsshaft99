@@ -84,6 +84,7 @@ export class GameEngine {
   activeAttacks: Attack[] = [];
   isControlsReversed: boolean = false;
   narrowNextPlatforms: number = 0;
+  private frameCount: number = 0;
 
   constructor(
     canvas: HTMLCanvasElement, 
@@ -331,11 +332,42 @@ export class GameEngine {
 
   update() {
     if (!this.gameActive) return;
-    this.updatePlatforms(); // Move platforms first
+    
+    // Increment frame counter
+    this.frameCount++;
+    
+    // Critical updates that run every frame
     this.updateCharacter();
-    this.updateCamera();
+    
+    // Platform scrolling needs to happen every frame for smooth movement
+    // Move platforms and update score
+    for (const platform of this.platforms) {
+      platform.y -= this.SCROLL_SPEED;
+      if (platform.timer !== undefined) {
+        platform.timer -= 16;
+      }
+    }
+
+    // Move character with the platform if standing on it
+    if (this.lastPlatformLanded && !this.lastPlatformLanded.collapsed) {
+      this.character.y -= this.SCROLL_SPEED;
+    }
+
+    this.totalDistanceTraveled += this.SCROLL_SPEED;
+    this.score = Math.floor(this.totalDistanceTraveled * SCORE_PER_DISTANCE);
+    this.onUpdateScore(this.score);
+    
     this.checkCollisions();
     this.checkGameOver();
+    
+    // Non-critical updates that run every 2nd frame
+    if (this.frameCount % 2 === 0) {
+      // Platform cleanup and generation
+      this.updatePlatforms();
+      this.updateCamera();
+    }
+    
+    // Visual updates
     this.draw();
 
     // After updating the local player and game state, render other players
@@ -420,9 +452,8 @@ export class GameEngine {
   }
 
   updatePlatforms() {
-    // Adjust scroll speed based on score - follows exactly what's in the requirements
+    // Adjust scroll speed based on score
     const increments = Math.floor(this.score / SCORE_PER_INCREMENT);
-    const previousScrollSpeed = this.SCROLL_SPEED;
     
     // Calculate new scroll speed based on score milestones
     this.SCROLL_SPEED = Math.min(
@@ -430,41 +461,18 @@ export class GameEngine {
       MAX_SCROLL_SPEED
     );
     
-    // Notify player if scroll speed increased
-    if (this.score > 0 && this.score % SCORE_PER_INCREMENT === 0 && this.SCROLL_SPEED > previousScrollSpeed) {
-      console.log(`Scroll Speed Increased to ${this.SCROLL_SPEED.toFixed(1)}!`);
-      // We could add toast notifications here as mentioned in requirements
-    }
-    
-    // Move all platforms upward at the current scroll speed
-    for (const platform of this.platforms) {
-      platform.y -= this.SCROLL_SPEED;
-      if (platform.timer !== undefined) {
-        platform.timer -= 16;
-      }
-    }
+    // Remove platforms that are far above the camera view
+    const cleanupThreshold = this.cameraY - this.canvas.height * 2;
+    this.platforms = this.platforms.filter(platform => platform.y >= cleanupThreshold);
 
-    // Move character with the platform if standing on it
-    if (this.lastPlatformLanded && !this.lastPlatformLanded.collapsed) {
-      this.character.y -= this.SCROLL_SPEED;
-    }
-
-    this.totalDistanceTraveled += this.SCROLL_SPEED;
-    this.score = Math.floor(this.totalDistanceTraveled * SCORE_PER_DISTANCE);
-    this.onUpdateScore(this.score);
-
-    // Remove platforms that are off the top of the screen
-    this.platforms = this.platforms.filter(platform => platform.y + PLATFORM_HEIGHT > 0);
-
-    // Find the lowest platform (furthest down the screen)
+    // Find the lowest platform
     if (this.platforms.length > 0) {
       const lowestPlatform = this.platforms.reduce(
-        (lowest, current) => current.y > lowest.y ? current : lowest, 
+        (lowest, current) => current.y > lowest.y ? current : lowest,
         this.platforms[0]
       );
       
       // Calculate how far down we should generate platforms
-      // We want to ensure platforms are generated well ahead of the player's descent
       const viewportBottom = this.cameraY + this.canvas.height;
       const extraDistance = this.canvas.height; // Generate one full screen height extra platforms
       
@@ -472,28 +480,21 @@ export class GameEngine {
       while (lowestPlatform.y < viewportBottom + extraDistance) {
         const newY = lowestPlatform.y + PLATFORM_VERTICAL_GAP;
         
-        // Always generate exactly one platform per level as requested
-        // This makes the game more challenging as there are fewer options
-        
-        // Randomize the horizontal position for variety
-        // Ensure platforms aren't too close to the edges
+        // Randomize the horizontal position with edge margins
         const edgeMargin = MIN_PLATFORM_WIDTH * 0.5;
         const availableWidth = this.canvas.width - (2 * edgeMargin) - MIN_PLATFORM_WIDTH;
         const randomX = edgeMargin + (Math.random() * availableWidth);
         
-        // Create just one platform with a random horizontal position
+        // Create platform with optimized width calculation
         this.addPlatform(newY, randomX - this.canvas.width/2);
-        
-        // Log platform creation for debugging
-        console.log(`Created platform at y=${Math.round(newY)}, with randomX=${Math.round(randomX)}`)
         
         // Update our reference to the new lowest platform
         const updatedLowestPlatform = this.platforms.reduce(
-          (lowest, current) => current.y > lowest.y ? current : lowest, 
+          (lowest, current) => current.y > lowest.y ? current : lowest,
           this.platforms[0]
         );
         
-        // If we didn't actually get a lower platform, manually increment to avoid infinite loop
+        // Break if we didn't get a lower platform to avoid infinite loop
         if (updatedLowestPlatform.y <= lowestPlatform.y) {
           break;
         }
@@ -505,97 +506,74 @@ export class GameEngine {
       // If no platforms exist, create one at 80% of canvas height
       this.addPlatform(this.canvas.height * 0.8);
     }
-    
-    // Debug log for platform count (can be removed in production)
-    if (this.score % 100 === 0) {
-      console.log(`Platforms: ${this.platforms.length}, Character Y: ${Math.round(this.character.y)}`);
-    }
-  }
-
-  // Check for collisions with power-ups
-  checkPowerUpCollisions() {
-    // Loop through all platforms with active power-ups
-    for (const platform of this.platforms) {
-      if (!platform.powerUp || !platform.powerUp.active) continue;
-      
-      const powerUp = platform.powerUp;
-      
-      // Check if character is colliding with power-up
-      const collidesX = this.character.x + this.character.width > powerUp.x && 
-                     this.character.x < powerUp.x + powerUp.width;
-      const collidesY = this.character.y + this.character.height > powerUp.y && 
-                     this.character.y < powerUp.y + powerUp.height;
-      
-      if (collidesX && collidesY) {
-        // Character collected the power-up
-        platform.powerUp.active = false;
-        
-        // Apply power-up effect based on its type
-        switch (powerUp.type) {
-          case PowerUpType.INVINCIBILITY:
-            // Activate invincibility
-            this.character.isInvincible = true;
-            this.character.invincibleUntil = Date.now() + INVINCIBILITY_POWER_UP_DURATION;
-            console.log("Power-up activated: Invincibility!");
-            // Play sound effect
-            playSound('jump'); // Reusing existing sound for now
-            break;
-            
-          case PowerUpType.SLOW_FALL:
-            // Activate slow fall
-            this.character.isSlowFall = true;
-            this.character.slowFallUntil = Date.now() + SLOW_FALL_POWER_UP_DURATION;
-            console.log("Power-up activated: Slow Fall!");
-            // Play sound effect
-            playSound('jump'); // Reusing existing sound for now
-            break;
-            
-          case PowerUpType.HEALTH_BOOST:
-            // Add health
-            const healthToAdd = HEALTH_BOOST_AMOUNT;
-            this.health = Math.min(100, this.health + healthToAdd);
-            this.onUpdateHealth(this.health);
-            console.log(`Power-up activated: Health Boost! +${healthToAdd} health.`);
-            // Play sound effect
-            playSound('jump'); // Reusing existing sound for now
-            break;
-        }
-      }
-    }
   }
 
   checkCollisions() {
     let isOnPlatform = false;
     this.lastPlatformLanded = null;
     
-    // Check for power-up collisions
-    this.checkPowerUpCollisions();
+    // Check for power-up collisions with nearby platforms only
+    const playerVerticalRange = 200; // Only check platforms within this range of the player
+    const nearbyPlatforms = this.platforms.filter(platform => 
+      Math.abs(platform.y - this.character.y) <= playerVerticalRange
+    );
 
-    // Get ceiling position that's pursuing the player (same calculation as in drawCeiling)
-    const targetCeilingDistance = 180; // Distance to maintain above player
+    // Check power-up collisions only for nearby platforms
+    for (const platform of nearbyPlatforms) {
+      if (!platform.powerUp || !platform.powerUp.active) continue;
+      
+      const powerUp = platform.powerUp;
+      
+      const collidesX = this.character.x + this.character.width > powerUp.x && 
+                     this.character.x < powerUp.x + powerUp.width;
+      const collidesY = this.character.y + this.character.height > powerUp.y && 
+                     this.character.y < powerUp.y + powerUp.height;
+      
+      if (collidesX && collidesY) {
+        platform.powerUp.active = false;
+        
+        switch (powerUp.type) {
+          case PowerUpType.INVINCIBILITY:
+            this.character.isInvincible = true;
+            this.character.invincibleUntil = Date.now() + INVINCIBILITY_POWER_UP_DURATION;
+            playSound('jump');
+            break;
+            
+          case PowerUpType.SLOW_FALL:
+            this.character.isSlowFall = true;
+            this.character.slowFallUntil = Date.now() + SLOW_FALL_POWER_UP_DURATION;
+            playSound('jump');
+            break;
+            
+          case PowerUpType.HEALTH_BOOST:
+            const healthToAdd = HEALTH_BOOST_AMOUNT;
+            this.health = Math.min(100, this.health + healthToAdd);
+            this.onUpdateHealth(this.health);
+            playSound('jump');
+            break;
+        }
+      }
+    }
+
+    // Get ceiling position
+    const targetCeilingDistance = 180;
     const pursuingCeilingY = Math.max(0, this.character.y - targetCeilingDistance);
     const ceilingYPos = Math.min(this.cameraY, pursuingCeilingY);
     const ceilingBottomY = ceilingYPos + CEILING_HEIGHT;
     
-    // Ceiling collision handling - ceiling follows the character with the camera
+    // Ceiling collision handling
     if (this.character.y <= ceilingBottomY) {
-      // If character tries to go above ceiling, stop upward movement
       if (this.character.velocityY < 0) {
         this.character.velocityY = 0;
       }
       
-      // Prevent character from going above ceiling - just stop them at the border
       if (this.character.y < ceilingBottomY) {
         this.character.y = ceilingBottomY;
         
-        // Apply instantaneous and deadly damage when hitting the ceiling
         if (!this.character.isInvincible) {
-          // Kill the character instantly for touching ceiling
-          this.health = 0;  // Set health to 0 directly
+          this.health = 0;
           this.onUpdateHealth(this.health);
           playSound('hurt');
-          
-          // Trigger game over immediately
           this.gameActive = false;
           this.onGameOver();
         }
@@ -603,38 +581,29 @@ export class GameEngine {
     }
     
     // Check for collision with ceiling spikes
-    // We need a separate check since they point downward from the ceiling
     const spikeWidth = this.canvas.width / CEILING_SPIKE_COUNT;
     const spikeIndex = Math.floor(this.character.x / spikeWidth);
     const spikeXCenter = spikeIndex * spikeWidth + spikeWidth / 2;
-    
-    // Calculate a more aggressive triangle hit area for each spike
     const charMidX = this.character.x + this.character.width/2;
     const distanceFromSpikeCenter = Math.abs(charMidX - spikeXCenter);
-    const hitAreaWidth = spikeWidth; // Full spike width for more challenging gameplay
-    
-    // Calculate spike tip position (doubled size to match visual spikes)
+    const hitAreaWidth = spikeWidth;
     const spikeLength = SPIKE_HEIGHT * 2;
     
-    // Character is touching a spike if they're below ceiling but close enough to a spike
     if (
-      this.character.y <= ceilingBottomY + spikeLength &&  // Within vertical range of spikes
-      this.character.y > ceilingBottomY &&                 // Below the ceiling itself
-      distanceFromSpikeCenter < hitAreaWidth/2 &&          // Within horizontal hit range
-      !this.character.isInvincible                         // Not invincible
+      this.character.y <= ceilingBottomY + spikeLength &&
+      this.character.y > ceilingBottomY &&
+      distanceFromSpikeCenter < hitAreaWidth/2 &&
+      !this.character.isInvincible
     ) {
-      // Instant death for spike contact
-      this.health = 0;  // Set health to 0 directly
+      this.health = 0;
       this.onUpdateHealth(this.health);
       playSound('hurt');
-      
-      // Trigger game over immediately
       this.gameActive = false;
       this.onGameOver();
     }
 
-    // Check platform collisions
-    for (const platform of this.platforms) {
+    // Check platform collisions only for nearby platforms
+    for (const platform of nearbyPlatforms) {
       if (platform.collapsed) continue;
 
       const onPlatformX = this.character.x + this.character.width > platform.x && 
@@ -671,8 +640,8 @@ export class GameEngine {
       }
     }
 
-    // Update collapsing platforms
-    for (const platform of this.platforms) {
+    // Update collapsing platforms only for nearby ones
+    for (const platform of nearbyPlatforms) {
       if (platform.type === PlatformType.COLLAPSING && platform.timer !== undefined && platform.timer <= 0) {
         platform.collapsed = true;
       }
@@ -738,27 +707,26 @@ export class GameEngine {
     ctx.save();
     ctx.translate(0, -this.cameraY);
 
+    // Calculate visible area bounds
+    const visibleTop = this.cameraY - 50; // Small buffer above
+    const visibleBottom = this.cameraY + this.canvas.height + 50; // Small buffer below
+
     this.drawCeiling();
+    
+    // Only draw platforms that are visible on screen
     for (const platform of this.platforms) {
-      if (!platform.collapsed) {
+      if (!platform.collapsed && 
+          platform.y >= visibleTop && 
+          platform.y <= visibleBottom) {
         drawPlatform(ctx, platform);
       }
     }
+    
     drawCharacter(ctx, this.character);
-
     ctx.restore();
 
     // Draw active power-up indicators at the top of the screen
     this.drawPowerUpIndicators(ctx);
-
-    // Debug info
-    ctx.fillStyle = 'white';
-    ctx.font = '10px Arial';
-    ctx.fillText(`Char: (${Math.round(this.character.x)}, ${Math.round(this.character.y)})`, 10, 60);
-    ctx.fillText(`CameraY: ${Math.round(this.cameraY)}`, 10, 70);
-    ctx.fillText(`Moving: ${this.isMovingLeft ? 'LEFT' : ''}${this.isMovingRight ? 'RIGHT' : ''}`, 10, 80);
-    ctx.fillText(`Platforms: ${this.platforms.length}`, 10, 90); // Adjusted position
-    ctx.fillText(`Score: ${this.score}`, 10, 100); // Added score display
   }
   
   // Draw indicator icons for active power-ups
@@ -1025,9 +993,10 @@ export class GameEngine {
     
     // Create a spike platform
     const platform = createPlatform(
-      platformY,
-      Math.random() * (this.canvas.width - MIN_PLATFORM_WIDTH),
-      PlatformType.SPIKE
+      Math.random() * (this.canvas.width - MIN_PLATFORM_WIDTH), // x
+      platformY, // y
+      MIN_PLATFORM_WIDTH, // width
+      PlatformType.SPIKE // type
     );
     
     this.platforms.push(platform);
