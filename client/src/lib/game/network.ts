@@ -179,6 +179,21 @@ export class NetworkManager {
     this.socket.emit('update_score', { score });
   }
 
+  // Request updated player list
+  public requestPlayerList(): void {
+    if (!this.socket || !this.socket.connected) {
+      console.warn('Cannot request player list: Socket not connected');
+      return;
+    }
+    
+    try {
+      console.log('Requesting updated player list');
+      this.socket.emit('request_player_list');
+    } catch (error) {
+      console.error('Error requesting player list:', error);
+    }
+  }
+
   // Send an attack to another player
   public sendAttack(targetId?: string, attackType?: AttackType): void {
     if (!this.socket || !this.socket.connected) return;
@@ -224,6 +239,33 @@ export class NetworkManager {
     if (!this.socket) return () => {};
     this.socket.on('score_updated', callback);
     return () => this.socket?.off('score_updated', callback);
+  }
+
+  // Register callback for player list updates
+  public onPlayerListUpdate(callback: (players: Record<string, Player>) => void): () => void {
+    if (!this.socket) return () => {};
+    
+    const handler = (data: { players: Record<string, Player> }) => {
+      console.log('Received player list update:', data);
+      
+      // Log detailed information about the players
+      const aiPlayers = Object.values(data.players).filter(p => p.isAI === true);
+      const humanPlayers = Object.values(data.players).filter(p => p.isAI !== true);
+      
+      console.log(`Player list update details:
+        - Total players: ${Object.keys(data.players).length}
+        - Human players: ${humanPlayers.length}
+        - AI players: ${aiPlayers.length}
+        - Player IDs: ${Object.keys(data.players).join(', ')}
+      `);
+      
+      callback(data.players);
+    };
+    
+    this.socket.on('player_list_update', handler);
+    return () => {
+      this.socket?.off('player_list_update', handler);
+    };
   }
 
   // Register callback for receiving attacks

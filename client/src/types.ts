@@ -1,3 +1,12 @@
+// Add global declarations
+import { NetworkManager } from './lib/game/network';
+
+declare global {
+  interface Window {
+    networkManager?: NetworkManager;
+  }
+}
+
 // Player interface
 export interface Player {
   id: string;

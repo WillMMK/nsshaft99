@@ -85,10 +85,23 @@ function createAIPlayer(gameId: string): Player {
 
 // Add AI players to a game
 function addAIPlayers(gameId: string, count: number) {
+  console.log(`Adding ${count} AI players to game ${gameId}`);
+  
   for (let i = 0; i < count; i++) {
     const aiPlayer = createAIPlayer(gameId);
+    
+    // Ensure the isAI flag is set
+    aiPlayer.isAI = true;
+    
+    // Add to the game
     activeGames[gameId].players[aiPlayer.id] = aiPlayer;
+    
+    console.log(`Added AI player ${aiPlayer.name} (${aiPlayer.id}) to game ${gameId}`);
   }
+  
+  // Log total AI players after adding
+  const aiPlayers = Object.values(activeGames[gameId].players).filter(p => p.isAI === true);
+  console.log(`Game ${gameId} now has ${aiPlayers.length} AI players`);
 }
 
 // Start a game countdown
@@ -126,6 +139,27 @@ function startGameCountdown(io: SocketIOServer, gameId: string) {
     const aiPlayers = Object.values(activeGames[gameId].players).filter(p => p.isAI);
     const totalPlayers = humanPlayers.length + aiPlayers.length;
 
+    // Special countdown event at 30 seconds - add AI players if needed
+    if (gameCountdowns[gameId].secondsLeft === 30) {
+      console.log(`Countdown at 30s for ${gameId}, checking if we need to add AI players`);
+      // If we have only 1 player, add an AI player
+      if (totalPlayers < 2) {
+        const aiNeeded = 2 - totalPlayers;
+        if (aiNeeded > 0) {
+          console.log(`Adding ${aiNeeded} AI player(s) at 30s countdown`);
+          addAIPlayers(gameId, aiNeeded);
+          
+          // Get the updated player list
+          const updatedPlayerList = activeGames[gameId].players;
+          
+          // Broadcast updated player list to all clients in the game
+          io.to(gameId).emit('player_list_update', {
+            players: updatedPlayerList 
+          });
+        }
+      }
+    }
+
     io.to(gameId).emit('countdown_update', {
       secondsLeft: gameCountdowns[gameId].secondsLeft,
       message: humanPlayers.length === 0 ? 'Waiting for players to join...' : 'Game starting soon...'
@@ -145,6 +179,11 @@ function startGameCountdown(io: SocketIOServer, gameId: string) {
         if (aiNeeded > 0) {
           console.log(`Adding ${aiNeeded} AI players to ${gameId}`);
           addAIPlayers(gameId, aiNeeded);
+          
+          // Broadcast updated player list to all clients
+          io.to(gameId).emit('player_list_update', {
+            players: activeGames[gameId].players
+          });
         }
         // Recheck players after adding AI
         const updatedTotal = Object.values(activeGames[gameId].players).length;
@@ -748,6 +787,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       } catch (error) {
         console.error('Error handling player death:', error);
+      }
+    });
+
+    // Handle player list request
+    socket.on("request_player_list", () => {
+      try {
+        console.log(`Player ${socket.id} requested player list`);
+        
+        // Find the game the player is in
+        const playerGame = findGameByPlayerId(socket.id);
+        if (!playerGame) {
+          console.log(`No game found for player ${socket.id}`);
+          return;
+        }
+        
+        // Debug info about the players
+        const players = playerGame.players;
+        const aiPlayers = Object.values(players).filter(p => p.isAI === true);
+        const humanPlayers = Object.values(players).filter(p => p.isAI !== true);
+        
+        console.log(`Game ${playerGame.id} player info:
+          - Total players: ${Object.keys(players).length}
+          - Human players: ${humanPlayers.length}
+          - AI players: ${aiPlayers.length}
+          - Player IDs: ${Object.keys(players).join(', ')}
+        `);
+        
+        // Ensure AI players have isAI flag explicitly set
+        Object.values(playerGame.players).forEach(player => {
+          if (player.id.startsWith('ai-') && player.isAI === undefined) {
+            console.log(`Fixing AI flag for player ${player.id}`);
+            player.isAI = true;
+          }
+        });
+        
+        // Send updated player list back to the client
+        socket.emit('player_list_update', {
+          players: playerGame.players
+        });
+      } catch (error) {
+        console.error('Error handling player list request:', error);
       }
     });
   });

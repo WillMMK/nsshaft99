@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useMultiplayer } from '@/contexts/MultiplayerContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { DEFAULT_GAME_ID } from '@/lib/game/constants';
@@ -12,20 +12,84 @@ const MultiplayerLobby: React.FC<MultiplayerLobbyProps> = ({ onJoin, onCancel })
   const { currentUser, userProfile } = useAuth();
   const { 
     joinGame, 
-    players, 
+    players,
     setIsMultiplayer, 
     isConnected, 
     countdownSeconds,
-    isGameActive
+    isGameActive,
+    playerId,
+    requestPlayerList
   } = useMultiplayer();
   const [playerName, setPlayerName] = useState<string>('');
   const [isJoining, setIsJoining] = useState<boolean>(false);
   const [waitingForPlayers, setWaitingForPlayers] = useState<boolean>(false);
   const [joinError, setJoinError] = useState<string | null>(null);
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   
   // Maximum players for a game
   const MAX_PLAYERS_PER_GAME = 8;
   const MIN_PLAYERS_TO_START = 2;
+  
+  // Helper function to determine if a player is an AI
+  const isAiPlayer = (player: any): boolean => {
+    if (!player) return false;
+    return player.isAI === true || (typeof player.id === 'string' && player.id.startsWith('ai-'));
+  };
+  
+  // More reliable filtering of AI vs human players
+  const getPlayerLists = () => {
+    const allPlayers = Object.values(players);
+    const aiPlayersList: any[] = [];
+    const humanPlayersList: any[] = [];
+    
+    // Categorize each player
+    allPlayers.forEach(player => {
+      if (isAiPlayer(player)) {
+        aiPlayersList.push(player);
+      } else {
+        humanPlayersList.push(player);
+      }
+    });
+    
+    return { 
+      aiPlayersList, 
+      humanPlayersList,
+      aiCount: aiPlayersList.length,
+      humanCount: humanPlayersList.length,
+      totalCount: allPlayers.length
+    };
+  };
+  
+  // Get player lists
+  const { aiPlayersList, humanPlayersList, aiCount, humanCount, totalCount } = getPlayerLists();
+  
+  // Manual polling for player list updates when we're waiting for players
+  useEffect(() => {
+    if (waitingForPlayers && !isGameActive) {
+      console.log('Lobby: Manually requesting initial player list');
+      requestPlayerList();
+      
+      // Set up interval for additional updates
+      const interval = setInterval(() => {
+        if (waitingForPlayers && !isGameActive) {
+          console.log('Lobby: Manual polling for player list update');
+          requestPlayerList();
+        }
+      }, 5000); // Every 5 seconds
+      
+      return () => clearInterval(interval);
+    }
+  }, [waitingForPlayers, isGameActive, requestPlayerList]);
+  
+  // Log players whenever they change
+  useEffect(() => {
+    if (Object.keys(players).length > 0) {
+      console.log('Lobby: Players updated:', players);
+      console.log('Lobby: Human players:', humanCount);
+      console.log('Lobby: AI players:', aiCount);
+      console.log('Lobby: AI players:', aiPlayersList);
+    }
+  }, [players, humanCount, aiCount, aiPlayersList]);
   
   // Set default player name from auth if available
   useEffect(() => {
@@ -58,6 +122,12 @@ const MultiplayerLobby: React.FC<MultiplayerLobbyProps> = ({ onJoin, onCancel })
       await joinGame(playerName, DEFAULT_GAME_ID);
       setWaitingForPlayers(true);
       setIsJoining(false);
+      
+      // Request player list after joining
+      setTimeout(() => {
+        console.log('Requesting player list after joining');
+        requestPlayerList();
+      }, 500);
     } catch (error) {
       console.error('Error joining game:', error);
       setJoinError('Failed to join game. Please try again.');
@@ -136,9 +206,19 @@ const MultiplayerLobby: React.FC<MultiplayerLobbyProps> = ({ onJoin, onCancel })
             <div className="mb-4">
               <div className="animate-spin inline-block w-8 h-8 border-4 border-game-blue border-t-transparent rounded-full mb-2"></div>
               <p className="text-game-light">Waiting for players...</p>
-              <p className="text-game-yellow mt-2">
-                {Object.keys(players).length} / {MAX_PLAYERS_PER_GAME} players
-              </p>
+              
+              {/* Display player counts with AI information */}
+              {Object.keys(players).length > 0 && (
+                <>
+                  <p className="text-game-yellow mt-2">
+                    {totalCount} / {MAX_PLAYERS_PER_GAME} players
+                  </p>
+                  <p className="text-game-light text-xs mt-1">
+                    {humanCount} Human · {aiCount} AI
+                  </p>
+                </>
+              )}
+              
               <p className="text-game-light text-sm mt-1">
                 Game will start when the countdown ends
               </p>
@@ -147,10 +227,19 @@ const MultiplayerLobby: React.FC<MultiplayerLobbyProps> = ({ onJoin, onCancel })
             {Object.keys(players).length > 0 && (
               <div className="mt-4 text-left">
                 <h3 className="font-mono text-game-light text-sm mb-2">Players in queue:</h3>
+                
                 <ul className="text-game-light max-h-40 overflow-y-auto">
-                  {Object.values(players).map((player) => (
+                  {/* Human players first */}
+                  {humanPlayersList.map((player) => (
                     <li key={player.id} className="text-sm">
-                      {player.name} {player.isAI ? '(AI)' : ''}
+                      {player.name} {player.id === playerId ? '(You)' : ''}
+                    </li>
+                  ))}
+                  
+                  {/* AI players with distinctive styling */}
+                  {aiPlayersList.map((player) => (
+                    <li key={player.id} className="text-sm">
+                      <span className="text-game-green">{player.name}</span> <span className="text-game-blue text-xs">(AI)</span>
                     </li>
                   ))}
                 </ul>

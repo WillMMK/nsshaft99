@@ -20,6 +20,7 @@ interface MultiplayerContextType {
   updateScore: (score: number) => void;
   sendAttack: (attackType: AttackType, targetId?: string) => void;
   reportDeath: () => void;
+  requestPlayerList: () => void;
   onReceiveAttack: (callback: (data: { attackerId: string; attackerName: string; attackType: AttackType }) => void) => () => void;
   onGameStarted: (callback: (data: { gameId: string; players: Record<string, Player>; startTime: number }) => void) => () => void;
   onGameOver: (callback: (data: { winnerId: string; winnerName: string; players: Record<string, Player> }) => void) => () => void;
@@ -56,9 +57,18 @@ export const MultiplayerProvider: React.FC<{ children: ReactNode }> = ({ childre
         setPlayerId(networkManager.getSocketId());
         console.log('Network connection established successfully');
         
+        // Make networkManager globally available for debugging and polling
+        if (typeof window !== 'undefined') {
+          (window as any).networkManager = networkManager;
+        }
+        
         // Set up event listeners
         networkManager.onPlayerJoined((data) => {
           console.log('Player joined:', data);
+          console.log('New player isAI:', data.player?.isAI);
+          console.log('AI players count:', Object.values(data.players).filter(p => p.isAI === true).length);
+          console.log('Human players count:', Object.values(data.players).filter(p => p.isAI !== true).length);
+          console.log('All players:', data.players);
           setPlayers(data.players);
         });
         
@@ -94,6 +104,17 @@ export const MultiplayerProvider: React.FC<{ children: ReactNode }> = ({ childre
         networkManager.onCountdownUpdate((data) => {
           console.log('Countdown update:', data);
           setCountdownSeconds(data.secondsLeft);
+          
+          // When countdown is at 30s, AI players might be added - request fresh player list
+          if (data.secondsLeft === 30 || data.secondsLeft === 29) {
+            console.log('Requesting fresh player list at countdown 30s');
+            networkManager.requestPlayerList();
+          }
+        });
+        
+        networkManager.onPlayerListUpdate((players) => {
+          console.log('Received updated player list:', players);
+          setPlayers(players);
         });
         
         networkManager.onDisconnect(() => {
@@ -275,6 +296,38 @@ export const MultiplayerProvider: React.FC<{ children: ReactNode }> = ({ childre
     return networkManager.onGameReset(callback);
   };
 
+  // Add requestPlayerList function to context
+  const requestPlayerList = () => {
+    console.log('Context: Requesting player list update');
+    if (networkManager) {
+      try {
+        networkManager.requestPlayerList();
+      } catch (error) {
+        console.error('Error requesting player list:', error);
+      }
+    } else {
+      console.warn('NetworkManager not initialized');
+    }
+  };
+
+  // Add a timer to periodically request the player list
+  useEffect(() => {
+    if (isMultiplayer && !isGameActive && Object.keys(players).length > 0) {
+      console.log('Setting up automatic player list polling');
+      
+      // Request immediately
+      requestPlayerList();
+      
+      // Then set up interval
+      const interval = setInterval(() => {
+        console.log('Auto-polling for player list update');
+        requestPlayerList();
+      }, 3000);
+      
+      return () => clearInterval(interval);
+    }
+  }, [isMultiplayer, isGameActive, Object.keys(players).length]);
+
   return (
     <MultiplayerContext.Provider
       value={{
@@ -294,6 +347,7 @@ export const MultiplayerProvider: React.FC<{ children: ReactNode }> = ({ childre
         updateScore,
         sendAttack,
         reportDeath,
+        requestPlayerList,
         onReceiveAttack,
         onGameStarted,
         onGameOver,
