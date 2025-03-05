@@ -252,7 +252,16 @@ export const MultiplayerProvider: React.FC<{ children: ReactNode }> = ({ childre
     setPlayers({});
     setIsGameActive(false);
     setGameStartTime(null);
+    setCountdownSeconds(null);
     setIsMultiplayer(false);
+    
+    // Add a slight delay before reconnecting to ensure a clean state
+    setTimeout(() => {
+      // Reinitialize the network connection
+      if (initializeNetworkRef.current) {
+        initializeNetworkRef.current();
+      }
+    }, 300);
   };
 
   // Update player score

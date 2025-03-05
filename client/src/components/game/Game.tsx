@@ -164,62 +164,107 @@ const GameWithMultiplayer: React.FC = () => {
   
   // Handle start game
   const handleStartGame = () => {
+    setIsTransitioning(true);
     resetGame();
-    setGameState(prev => ({
-      ...prev,
-      isRunning: true,
-      isPaused: false
-    }));
+    setTimeout(() => {
+      setGameState(prev => ({
+        ...prev,
+        isRunning: true,
+        isPaused: false
+      }));
+      setIsTransitioning(false);
+    }, 300);
   };
   
   // Handle start multiplayer
   const handleStartMultiplayer = () => {
     console.log('Starting multiplayer mode');
-    setIsMultiplayer(true);
-    setShowLobby(true);
+    setIsTransitioning(true);
+    // Delay slightly to avoid flashing
+    setTimeout(() => {
+      setIsMultiplayer(true);
+      setShowLobby(true);
+      setIsTransitioning(false);
+    }, 300);
   };
   
   // Handle join multiplayer from game over
   const handleJoinMultiplayer = () => {
     console.log('Joining multiplayer from game over');
+    setIsTransitioning(true);
     // First reset the game state
     resetGame();
     
-    // Then switch to multiplayer
-    setIsMultiplayer(true);
-    setShowLobby(true);
+    // Then switch to multiplayer after a short delay
+    setTimeout(() => {
+      setIsMultiplayer(true);
+      setShowLobby(true);
+      setIsTransitioning(false);
+    }, 300);
   };
   
   // Handle join game
   const handleJoinGame = () => {
     console.log('Joining multiplayer game');
-    setShowLobby(false);
+    setIsTransitioning(true);
+    setTimeout(() => {
+      setShowLobby(false);
+      setIsTransitioning(false);
+    }, 300);
   };
   
   // Handle cancel join
   const handleCancelJoin = () => {
     console.log('Cancelling multiplayer join');
+    setIsTransitioning(true);
     setIsMultiplayer(false);
-    setShowLobby(false);
     leaveGame();
+    setTimeout(() => {
+      setShowLobby(false);
+      setIsTransitioning(false);
+    }, 300);
   };
   
   // Handle play again
   const handlePlayAgain = () => {
     setShowGameOver(false);
+    // Set transitioning state immediately to prevent showing the start screen
+    setIsTransitioning(true);
     
     if (isMultiplayer) {
       // In multiplayer mode, navigate back to the multiplayer lobby with 60s countdown
       resetGame();
-      setIsMultiplayer(true);
-      setShowLobby(true);
-      // Leave current game and join the lobby
+      
+      // Full reset of game state to ensure a clean state
+      setGameState(prev => ({
+        ...prev,
+        isRunning: false,
+        isPaused: false,
+        activeEffects: {
+          spikePlatforms: false,
+          speedUp: false,
+          narrowPlatforms: false,
+          reverseControls: false
+        },
+        attackNotification: null,
+        score: 0,
+        health: 100
+      }));
+      
+      // First leave the current game to clean up server-side state
       leaveGame();
+      
+      // Add a small delay before showing the lobby to ensure socket connection is re-established
+      setTimeout(() => {
+        setIsMultiplayer(true);
+        setShowLobby(true);
+        setIsTransitioning(false); // Reset transition state once lobby is shown
+      }, 300);
+      
       return;
     }
     
     // Single player mode flow continues as before
-    setIsTransitioning(true);
     
     // Use setTimeout to ensure state updates have been processed
     setTimeout(() => {
@@ -262,6 +307,7 @@ const GameWithMultiplayer: React.FC = () => {
   const handleBackToMainMenu = () => {
     console.log('Navigating back to main menu');
     setShowGameOver(false);
+    setIsTransitioning(true);
     
     // Reset game state
     resetGame();
@@ -272,14 +318,26 @@ const GameWithMultiplayer: React.FC = () => {
       leaveGame();
     }
     
-    // Show start screen
-    setIsDead(false);
-    setShowLobby(false);
-    setGameState(prev => ({
-      ...prev,
-      isRunning: false,
-      isPaused: false
-    }));
+    // Show start screen after a short delay to avoid flashing
+    setTimeout(() => {
+      setIsDead(false);
+      setShowLobby(false);
+      setGameState(prev => ({
+        ...prev,
+        isRunning: false,
+        isPaused: false,
+        activeEffects: {
+          spikePlatforms: false,
+          speedUp: false,
+          narrowPlatforms: false,
+          reverseControls: false
+        },
+        attackNotification: null,
+        score: 0,
+        health: 100
+      }));
+      setIsTransitioning(false);
+    }, 300);
   };
   
   const handleGameOver = () => {
@@ -299,14 +357,24 @@ const GameWithMultiplayer: React.FC = () => {
   
   return (
     <div ref={gameRef} className="relative w-full h-full">
-      {!gameState.isRunning && !showGameOver && !showLobby && !isDead && (
+      {/* Only show the start screen if we're not transitioning and not in any other mode */}
+      {!gameState.isRunning && !showGameOver && !showLobby && !isDead && !isTransitioning && (
         <StartScreen 
           onStartGame={handleStartGame} 
           onStartMultiplayer={handleStartMultiplayer} 
         />
       )}
       
-      {showLobby && (
+      {/* Show a loading screen during transitions */}
+      {isTransitioning && !showLobby && !gameState.isRunning && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-game-dark bg-opacity-90 z-30">
+          <div className="animate-spin w-10 h-10 border-4 border-game-blue border-t-transparent rounded-full mb-4"></div>
+          <p className="text-game-light font-pixel">Loading...</p>
+        </div>
+      )}
+      
+      {/* Show the multiplayer lobby when needed, but not during transitions */}
+      {showLobby && !isTransitioning && (
         <MultiplayerLobby 
           onJoin={handleJoinGame} 
           onCancel={handleCancelJoin} 
@@ -328,7 +396,6 @@ const GameWithMultiplayer: React.FC = () => {
         <GameOverScreen 
           winner={winner}
           onPlayAgain={handlePlayAgain} 
-          onMultiplayer={handleJoinMultiplayer}
           onBackToMainMenu={handleBackToMainMenu}
         />
       )}

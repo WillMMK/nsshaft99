@@ -217,8 +217,24 @@ export class NetworkManager {
   // Disconnect from the server
   public disconnect(): void {
     if (this.socket) {
+      console.log('Disconnecting socket...');
+      
+      // Remove all listeners to prevent memory leaks and stale callbacks
+      this.socket.removeAllListeners();
+      
+      // Disconnect the socket
       this.socket.disconnect();
+      
+      // Clear connecting state
+      this.connecting = false;
+      
+      // Clear any pending connection callbacks
+      this.connectionCallbacks = [];
+      
+      // Null the socket
       this.socket = null;
+      
+      console.log('Socket disconnected and cleaned up');
     }
   }
 

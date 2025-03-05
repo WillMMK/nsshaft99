@@ -153,7 +153,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ onJoinMultiplayer }) => {
         className="absolute top-0 left-0 w-full h-full"
       />
       
-      <div className="absolute top-0 left-0 w-full p-2">
+      <div className="absolute top-0 left-0 w-full p-2 mt-12">
         <HealthBar health={health} />
         <div id="score-value" className="text-white font-mono text-sm mt-1">
           {score}
@@ -161,7 +161,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ onJoinMultiplayer }) => {
       </div>
       
       {isMultiplayer && (
-        <div className="absolute top-12 right-2 flex flex-col items-end">
+        <div className="absolute top-24 right-2 flex flex-col items-end">
           <PlayerList />
           <AttackNotification />
           <AttackButton score={score} />

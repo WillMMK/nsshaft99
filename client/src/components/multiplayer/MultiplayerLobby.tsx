@@ -91,14 +91,28 @@ const MultiplayerLobby: React.FC<MultiplayerLobbyProps> = ({ onJoin, onCancel })
     }
   }, [players, humanCount, aiCount, aiPlayersList]);
   
-  // Set default player name from auth if available
+  // Reset state when component mounts
   useEffect(() => {
-    if (currentUser?.displayName) {
-      setPlayerName(currentUser.displayName);
-    } else if (userProfile?.username) {
-      setPlayerName(userProfile.username);
+    // Reset the state when the component is mounted
+    setIsJoining(false);
+    setWaitingForPlayers(false);
+    setJoinError(null);
+    
+    // Set initial player name from user profile if available
+    if (currentUser && userProfile?.displayName) {
+      setPlayerName(userProfile.displayName);
+    } else if (localStorage.getItem('playerName')) {
+      setPlayerName(localStorage.getItem('playerName') || '');
     }
-  }, [currentUser, userProfile]);
+    
+    // Clean up polling interval on unmount
+    return () => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = null;
+      }
+    };
+  }, []);
   
   // Start the game when it becomes active
   useEffect(() => {
