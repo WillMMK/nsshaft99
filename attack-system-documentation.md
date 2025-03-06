@@ -1,11 +1,11 @@
 # Attack System Documentation
 
 ## Overview
-The multiplayer attack system allows players to send various types of attacks to their opponents, creating an interactive and competitive gameplay experience. This document details the implementation and functionality of the attack system.
+The multiplayer attack system allows players to collect item power-ups that immediately send various types of attacks to their opponents, creating an interactive and competitive gameplay experience. This document details the implementation and functionality of the item-based attack system.
 
 ## Attack Types
 
-The game supports four different types of attacks (`AttackType` enum):
+The game supports five different types of attacks (`AttackType` enum):
 
 1. **Spike Platform** (`SPIKE_PLATFORM`)
    - Adds spikes to platforms
@@ -27,73 +27,117 @@ The game supports four different types of attacks (`AttackType` enum):
    - Visual indicator: 🔄
    - Color theme: Purple
 
-## Attack System Components
+5. **True Reverse** (`TRUE_REVERSE`)
+   - Reverses controls without flipping screen
+   - Visual indicator: ⇄
+   - Color theme: Indigo
 
-### 1. Attack Button (client/src/components/multiplayer/AttackButton.tsx)
-- Floating action button in the game UI
-- Shows attack menu when clicked
-- Features:
-  - Cooldown system
-  - Score threshold requirement
-  - Visual feedback
-  - Attack type selection
+## Item-Based Attack System
 
-### 2. Attack Notification (client/src/components/multiplayer/AttackNotification.tsx)
-- Displays incoming attacks
-- Defense system:
-  - Time-based defense chance (starts at 100%, decreases over time)
-  - Visual feedback for successful/failed defense
-  - Attack effect clearing on successful defense
+### 1. Attack Items
+- Attack items spawn randomly on platforms in multiplayer mode
+- Each attack type has its own distinct color and icon
+- When collected, the attack is immediately sent to a random opponent
+- No storage or delay - collecting triggers the attack instantly
 
-### 3. Player List Attacks (client/src/components/multiplayer/PlayerList.tsx)
-- Allows targeting specific players
-- Shows player scores and status
-- Integrated attack menu for player targeting
+### 2. Shield Items
+- Special purple shield items (🛡️) also spawn on platforms
+- When collected, they activate temporary protection (10 seconds)
+- Shields automatically block the next incoming attack
+- After blocking an attack, the shield is consumed
+
+### 3. Item Spawn Mechanics
+- Items appear on approximately 70% of platforms (configurable)
+- Items only spawn on normal platforms (not on spike or collapsing platforms)
+- Attack and shield items only spawn in multiplayer mode
+- Visual highlights make platforms with items easier to spot
 
 ## Attack Flow
 
 1. **Sending an Attack**:
-   ```typescript
-   sendAttack(attackType: AttackType, targetId?: string)
-   ```
-   - Player initiates attack through UI
-   - NetworkManager sends attack to server
-   - Server validates and forwards to target
-   - Attack notification appears for target player
+   - Player collects an attack item by touching it
+   - System automatically selects a random opponent
+   - Attack is immediately sent to target player
+   - Visual and audio feedback confirms the attack was sent
 
 2. **Receiving an Attack**:
-   ```typescript
-   onReceiveAttack(callback: (data: { 
-     attackerId: string;
-     attackerName: string;
-     attackType: AttackType 
-   }) => void)
-   ```
    - Target receives attack notification
-   - Defense opportunity window opens
+   - If target has an active shield, attack is automatically blocked
+   - Otherwise, normal defense opportunity window opens
    - Effect applies if defense fails
    - Effect clears after duration (5 seconds)
 
 3. **Defense System**:
-   - Time-based defense chance
-   - Decreases by 5% every 200ms
-   - Success/failure feedback
-   - Effect cleared on successful defense
+   - **Shield Defense**: Automatic blocking with collected shield item
+   - **Manual Defense**:
+     - Time-based defense chance
+     - Decreases by 5% every 200ms
+     - Success/failure feedback
+     - Effect cleared on successful defense
 
-## Attack Effects Implementation
+## Implementation Details
 
-### Effect Duration
-- Default duration: 5000ms (5 seconds)
-- Effects automatically clear after duration
-- Can be cleared early with successful defense
-
-### Effect States
+### Item Generation
 ```typescript
-activeEffects: {
-  spikePlatforms: boolean;
-  speedUp: boolean;
-  narrowPlatforms: boolean;
-  reverseControls: boolean;
+// Inside createPlatform function
+if (isMultiplayer) {
+  // In multiplayer mode, spawn all power-up types with weighted distribution
+  if (rand < 0.4) {
+    // Original power-ups (40% chance)
+    powerUpType = Math.floor(Math.random() * 3);
+  } else if (rand < 0.6) {
+    // Shield (20% chance)
+    powerUpType = PowerUpType.SHIELD;
+  } else {
+    // Attack items (40% chance)
+    const attackTypes = [
+      PowerUpType.ATTACK_SPIKE_PLATFORM,
+      PowerUpType.ATTACK_SPEED_UP,
+      PowerUpType.ATTACK_NARROW_PLATFORM,
+      PowerUpType.ATTACK_REVERSE_CONTROLS,
+      PowerUpType.ATTACK_TRUE_REVERSE
+    ];
+    powerUpType = attackTypes[Math.floor(Math.random() * attackTypes.length)];
+  }
+}
+```
+
+### Attack Processing
+```typescript
+// When collecting an attack item
+if (powerUp.type === PowerUpType.ATTACK_*) {
+  // Map to attack type
+  let attackType = AttackType.*;
+  
+  // Get all other players (excluding self)
+  const playersArray = Object.entries(otherPlayers)
+    .filter(([id]) => id !== localPlayerId)
+    .map(([id]) => id);
+  
+  // Pick random target
+  const randomTargetId = playersArray[Math.floor(Math.random() * playersArray.length)];
+  
+  // Send attack
+  onUpdateGameState({
+    sendAttack: { attackType, targetId: randomTargetId }
+  });
+}
+```
+
+### Shield Processing
+```typescript
+// When receiving an attack with shield active
+if (gameState.attackNotification && !defended && gameState.hasShield) {
+  // Shield blocks the attack automatically
+  setShieldBlocked(true);
+  setDefended(true);
+  setDefenseSuccessful(true);
+  
+  // Clear shield after use
+  setGameState(prev => ({
+    ...prev,
+    hasShield: false
+  }));
 }
 ```
 
@@ -103,7 +147,7 @@ activeEffects: {
 - `sendAttack` event:
   ```typescript
   {
-    targetPlayerId?: string;
+    targetPlayerId: string;
     attackType: AttackType;
   }
   ```
@@ -118,71 +162,36 @@ activeEffects: {
   }
   ```
 
-## AI Player Attack System
+## User Experience
 
-AI players can also participate in the attack system:
-- Random attack generation
-- 5% chance to attack per update cycle
-- Random target selection
-- All attack types available to AI
-
-## Security Considerations
-
-1. **Server-side Validation**:
-   - Attack sender verification
-   - Target player existence check
-   - Game state validation
-   - Score threshold verification
-
-2. **Rate Limiting**:
-   - Cooldown system
-   - Score requirements
-   - Server-side verification
-
-## Best Practices
-
-1. **Attack Implementation**:
-   - Clear visual feedback
-   - Consistent effect duration
-   - Balanced defense system
-   - Fair cooldown periods
-
-2. **User Experience**:
+1. **Visual Feedback**:
+   - Distinct colors and icons for different item types
+   - Highlighted platforms containing items
    - Clear attack notifications
-   - Visual effect indicators
-   - Defense opportunity window
-   - Attack status feedback
+   - Shield effect around player character
+   - Success/failure messages
 
-3. **Error Handling**:
-   - Connection loss handling
-   - Invalid target handling
-   - Effect cleanup on game reset
-   - Proper state management
-
-## Debugging
-
-The system includes comprehensive logging:
-- Attack sending/receiving
-- Defense attempts
-- Effect application/removal
-- Player state changes
+2. **Audio Feedback**:
+   - Sound effects for collecting items
+   - Sound effects for sending/receiving attacks
+   - Shield activation and defense sounds
 
 ## Future Improvements
 
-1. **Attack System Enhancements**:
-   - New attack types
-   - Combo attack system
-   - Power-up based attacks
-   - Team-based attacks
+1. **Item System Enhancements**:
+   - More item types
+   - Special items with unique effects
+   - Item combinations
+   - Rare super-items with enhanced effects
 
 2. **Defense System Improvements**:
-   - Skill-based defense mechanics
-   - Defense power-ups
+   - Multiple shield levels
+   - Shield regeneration
+   - Counter-attack abilities
    - Team defense options
-   - Defense cooldown system
 
 3. **UI/UX Improvements**:
    - Enhanced visual effects
-   - Better feedback systems
-   - More interactive defense mechanics
-   - Advanced targeting system 
+   - More interactive item collection
+   - Clearer indicators of active effects
+   - Tutorial for new players 
