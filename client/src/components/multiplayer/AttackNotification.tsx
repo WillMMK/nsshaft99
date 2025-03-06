@@ -7,11 +7,11 @@ import { playAttackSound } from '@/lib/game/audio';
 const AttackNotification: React.FC = () => {
   const { players } = useMultiplayer();
   const { gameState, setGameState } = useGameState();
-  const [showDefenseButton, setShowDefenseButton] = useState<boolean>(false);
   const [defenseChance, setDefenseChance] = useState<number>(100); // 100% chance initially
   const [defended, setDefended] = useState<boolean>(false);
   const [defenseSuccessful, setDefenseSuccessful] = useState<boolean>(false);
   const [blinkState, setBlinkState] = useState<boolean>(false);
+  const [defenseAttempted, setDefenseAttempted] = useState<boolean>(false);
   
   // Blinking effect for 8-bit style
   useEffect(() => {
@@ -37,143 +37,73 @@ const AttackNotification: React.FC = () => {
     }
   }, [gameState.attackNotification, defended]);
   
-  // Show defense button for a short time when a new attack notification comes in
+  // Automatic defense system based on player movement
   useEffect(() => {
-    if (gameState.attackNotification && !defended) {
-      setShowDefenseButton(true);
-      setDefenseChance(100); // Reset defense chance
+    if (gameState.attackNotification && !defended && !defenseAttempted) {
+      // Initialize defense
+      setDefenseChance(100);
+      setDefenseAttempted(false);
       
-      // Decrease defense chance over time
+      // Decrease defense chance over time (slower than before)
       const interval = setInterval(() => {
         setDefenseChance(prev => {
-          const newChance = prev - 5; // Decrease by 5% every 200ms
+          const newChance = prev - 2; // Decrease by 2% every 200ms (slower reduction)
           return newChance < 0 ? 0 : newChance;
         });
       }, 200);
       
+      // Automatic defense will be triggered after 2.5 seconds
+      const defenseTimer = setTimeout(() => {
+        attemptDefense();
+      }, 2500);
+      
       // Auto-hide after 5 seconds if not defended
-      const timer = setTimeout(() => {
-        setShowDefenseButton(false);
-        setDefended(false);
+      const hideTimer = setTimeout(() => {
+        if (!defended) {
+          setDefended(true);
+          setDefenseSuccessful(false);
+          
+          // Ensure attack effects are cleared after their duration
+          setTimeout(() => {
+            clearAttackEffects();
+          }, 5000);
+        }
       }, 5000);
       
       return () => {
-        clearTimeout(timer);
         clearInterval(interval);
+        clearTimeout(defenseTimer);
+        clearTimeout(hideTimer);
       };
     }
-  }, [gameState.attackNotification, defended]);
+  }, [gameState.attackNotification, defended, defenseAttempted]);
   
-  // Reset defended state when attack notification changes
-  useEffect(() => {
-    setDefended(false);
-    setDefenseSuccessful(false);
-  }, [gameState.attackNotification]);
-  
-  if (!gameState.attackNotification) {
-    return null;
-  }
-  
-  // Get attack description and color
-  const getAttackInfo = (type: AttackType): { description: string; color: string; icon: string; pixelArt: string } => {
-    switch (type) {
-      case AttackType.SPIKE_PLATFORM:
-        return { 
-          description: 'SPIKE PLATFORM', 
-          color: 'red', 
-          icon: '⚡',
-          pixelArt: `
-          ⬛⬛⬜⬛⬛
-          ⬛⬜⬜⬜⬛
-          ⬜⬜⬜⬜⬜
-          ⬛⬜⬜⬜⬛
-          ⬛⬛⬜⬛⬛
-          `
-        };
-      case AttackType.SPEED_UP:
-        return { 
-          description: 'SPEED UP', 
-          color: 'blue', 
-          icon: '🏃',
-          pixelArt: `
-          ⬜⬛⬛⬛⬜
-          ⬛⬜⬛⬜⬛
-          ⬛⬛⬜⬛⬛
-          ⬛⬜⬛⬜⬛
-          ⬜⬛⬛⬛⬜
-          `
-        };
-      case AttackType.NARROW_PLATFORM:
-        return { 
-          description: 'NARROW PLATFORM', 
-          color: 'green', 
-          icon: '↔️',
-          pixelArt: `
-          ⬛⬛⬜⬛⬛
-          ⬛⬜⬛⬜⬛
-          ⬜⬛⬛⬛⬜
-          ⬛⬜⬛⬜⬛
-          ⬛⬛⬜⬛⬛
-          `
-        };
-      case AttackType.REVERSE_CONTROLS:
-        return { 
-          description: 'CONTROLS REVERSED', 
-          color: 'purple', 
-          icon: '🔄',
-          pixelArt: `
-          ⬜⬜⬜⬜⬜
-          ⬛⬛⬜⬛⬛
-          ⬛⬛⬜⬛⬛
-          ⬛⬜⬛⬜⬛
-          ⬜⬛⬛⬛⬜
-          `
-        };
-      default:
-        return { 
-          description: 'UNKNOWN ATTACK', 
-          color: 'gray', 
-          icon: '❓',
-          pixelArt: `
-          ⬛⬜⬜⬜⬛
-          ⬛⬛⬛⬜⬛
-          ⬛⬛⬜⬛⬛
-          ⬛⬛⬛⬛⬛
-          ⬛⬛⬜⬛⬛
-          `
-        };
-    }
+  // Check if player is moving based on gameState
+  const isPlayerMoving = () => {
+    // If we have movement data from gameState, use it
+    return gameState.isMovingLeft || gameState.isMovingRight;
   };
   
-  const attackInfo = getAttackInfo(gameState.attackNotification.attackType);
-  
-  // Handle defense button click
-  const handleDefend = () => {
-    // Determine if defense is successful based on chance
-    const isSuccessful = Math.random() * 100 <= defenseChance;
+  // Attempt defense based on player's movement and current defense chance
+  const attemptDefense = () => {
+    if (defended || defenseAttempted) return;
+    
+    setDefenseAttempted(true);
+    
+    // If player is currently moving, they get a 50% boost to defense chance
+    const movementBonus = isPlayerMoving() ? 50 : 0;
+    const finalDefenseChance = Math.min(100, defenseChance + movementBonus);
+    
+    // Determine if defense is successful
+    const isSuccessful = Math.random() * 100 <= finalDefenseChance;
     setDefenseSuccessful(isSuccessful);
     
     // Play defense sound with success state
     playAttackSound('', true, isSuccessful);
     
     if (isSuccessful) {
-      // Clear the attack effect based on type
-      const attackType = gameState.attackNotification?.attackType;
-      if (attackType) {
-        setGameState(prev => ({
-          ...prev,
-          activeEffects: {
-            ...prev.activeEffects,
-            spikePlatforms: attackType === AttackType.SPIKE_PLATFORM ? false : prev.activeEffects.spikePlatforms,
-            speedUp: attackType === AttackType.SPEED_UP ? false : prev.activeEffects.speedUp,
-            narrowPlatforms: attackType === AttackType.NARROW_PLATFORM ? false : prev.activeEffects.narrowPlatforms,
-            reverseControls: attackType === AttackType.REVERSE_CONTROLS ? false : prev.activeEffects.reverseControls
-          },
-          attackNotification: null
-        }));
-      }
-      setDefended(true);
-      setShowDefenseButton(false);
+      // Clear the attack effect
+      clearAttackEffects();
       
       // Vibrate success pattern
       if (navigator.vibrate) {
@@ -193,10 +123,85 @@ const AttackNotification: React.FC = () => {
           ...prev,
           attackNotification: null
         }));
-        setShowDefenseButton(false);
       }, 1000);
     }
   };
+  
+  // Clear attack effects
+  const clearAttackEffects = () => {
+    if (!gameState.attackNotification) return;
+    
+    const attackType = gameState.attackNotification.attackType;
+    setGameState(prev => ({
+      ...prev,
+      activeEffects: {
+        ...prev.activeEffects,
+        spikePlatforms: attackType === AttackType.SPIKE_PLATFORM ? false : prev.activeEffects.spikePlatforms,
+        speedUp: attackType === AttackType.SPEED_UP ? false : prev.activeEffects.speedUp,
+        narrowPlatforms: attackType === AttackType.NARROW_PLATFORM ? false : prev.activeEffects.narrowPlatforms,
+        reverseControls: attackType === AttackType.REVERSE_CONTROLS ? false : prev.activeEffects.reverseControls,
+        trueReverse: attackType === AttackType.TRUE_REVERSE ? false : prev.activeEffects.trueReverse
+      },
+      attackNotification: null
+    }));
+    
+    setDefended(true);
+  };
+  
+  // Reset state when attack notification changes
+  useEffect(() => {
+    setDefended(false);
+    setDefenseSuccessful(false);
+    setDefenseAttempted(false);
+  }, [gameState.attackNotification]);
+  
+  if (!gameState.attackNotification) {
+    return null;
+  }
+  
+  // Get attack description and color
+  const getAttackInfo = (type: AttackType): { description: string; color: string; icon: string; } => {
+    switch (type) {
+      case AttackType.SPIKE_PLATFORM:
+        return { 
+          description: 'SPIKE PLATFORM', 
+          color: 'red', 
+          icon: '⚡'
+        };
+      case AttackType.SPEED_UP:
+        return { 
+          description: 'SPEED UP', 
+          color: 'blue', 
+          icon: '🏃'
+        };
+      case AttackType.NARROW_PLATFORM:
+        return { 
+          description: 'NARROW PLATFORM', 
+          color: 'green', 
+          icon: '↔️'
+        };
+      case AttackType.REVERSE_CONTROLS:
+        return { 
+          description: 'FLIP CONTROLS', 
+          color: 'purple', 
+          icon: '🔄'
+        };
+      case AttackType.TRUE_REVERSE:
+        return { 
+          description: 'REVERSE CONTROLS', 
+          color: 'indigo', 
+          icon: '⇄'
+        };
+      default:
+        return { 
+          description: 'UNKNOWN ATTACK', 
+          color: 'gray', 
+          icon: '❓'
+        };
+    }
+  };
+  
+  const attackInfo = getAttackInfo(gameState.attackNotification.attackType);
   
   // Get color classes based on attack type
   const getColorClasses = (color: string) => {
@@ -207,8 +212,6 @@ const AttackNotification: React.FC = () => {
           bg: 'bg-red-900',
           text: 'text-red-400',
           shadow: 'shadow-red-500/70',
-          buttonBg: 'bg-red-700',
-          buttonHover: 'hover:bg-red-600'
         };
       case 'blue': 
         return {
@@ -216,8 +219,6 @@ const AttackNotification: React.FC = () => {
           bg: 'bg-blue-900',
           text: 'text-blue-400',
           shadow: 'shadow-blue-500/70',
-          buttonBg: 'bg-blue-700',
-          buttonHover: 'hover:bg-blue-600'
         };
       case 'green': 
         return {
@@ -225,8 +226,6 @@ const AttackNotification: React.FC = () => {
           bg: 'bg-green-900',
           text: 'text-green-400',
           shadow: 'shadow-green-500/70',
-          buttonBg: 'bg-green-700',
-          buttonHover: 'hover:bg-green-600'
         };
       case 'purple': 
         return {
@@ -234,8 +233,13 @@ const AttackNotification: React.FC = () => {
           bg: 'bg-purple-900',
           text: 'text-purple-400',
           shadow: 'shadow-purple-500/70',
-          buttonBg: 'bg-purple-700',
-          buttonHover: 'hover:bg-purple-600'
+        };
+      case 'indigo': 
+        return {
+          border: 'border-indigo-500',
+          bg: 'bg-indigo-900',
+          text: 'text-indigo-400',
+          shadow: 'shadow-indigo-500/70',
         };
       default:
         return {
@@ -243,8 +247,6 @@ const AttackNotification: React.FC = () => {
           bg: 'bg-gray-900',
           text: 'text-gray-400',
           shadow: 'shadow-gray-500/70',
-          buttonBg: 'bg-gray-700',
-          buttonHover: 'hover:bg-gray-600'
         };
     }
   };
@@ -252,116 +254,57 @@ const AttackNotification: React.FC = () => {
   const colorClasses = getColorClasses(attackInfo.color);
   
   return (
-    <div className="absolute top-4 right-4 z-30 max-w-[300px]">
+    <div className="fixed top-4 right-4 z-50 pointer-events-none">
       <div 
-        className={`bg-black bg-opacity-95 border-2 ${colorClasses.border} p-2 
-                    ${defended ? '' : blinkState ? 'scale-105' : 'scale-100'} 
-                    transition-transform duration-100 
-                    shadow-lg ${colorClasses.shadow}
-                    image-rendering-pixelated`}
+        className={`
+          pixel-box 
+          max-w-[200px]
+          rounded 
+          p-3
+          ${blinkState ? colorClasses.border : 'border-white'} 
+          border-2
+          ${colorClasses.bg}
+          ${colorClasses.shadow}
+          shadow-lg
+          text-center
+          flex flex-col items-center
+          justify-center
+          transform
+          transition-all
+          pixel-corners
+          ${defended ? (defenseSuccessful ? 'scale-150 opacity-0' : 'shake-animation') : 'animate-bounce-small'}
+        `}
         style={{ 
-          boxShadow: `0 0 8px 1px ${blinkState ? colorClasses.text : 'transparent'}`,
+          transition: 'transform 0.5s, opacity 0.5s',
           imageRendering: 'pixelated' 
         }}
       >
-        {/* Top border pixel design - more compact */}
-        <div className="flex justify-between mb-1 overflow-hidden">
-          {Array.from({ length: 10 }).map((_, i) => (
-            <div 
-              key={`pixel-top-${i}`}
-              className={`w-2 h-2 ${i % 2 === 0 ? colorClasses.bg : 'bg-black'}`}
-            />
-          ))}
+        <div className="text-sm text-white font-bold mb-1 pixel-text">
+          {gameState.attackNotification.attackerName}
         </div>
         
-        {/* Attack Header - more compact */}
-        <div className="bg-black p-1 border border-gray-800 mb-2">
-          <div className="flex items-center justify-center">
-            <span className="font-pixel text-white text-xs px-1 animate-pulse">
-              ATTACK!
-            </span>
-          </div>
+        <div className="text-xl mb-1">{attackInfo.icon}</div>
+        
+        <div className={`font-bold text-xs mb-1 ${colorClasses.text} pixel-text`}>
+          {attackInfo.description}
         </div>
         
-        {/* Attack Content - more compact */}
-        <div className="flex items-center justify-center gap-2 mb-2">
-          {/* Pixel Art Icon - smaller */}
-          <div className="w-8 h-8 flex items-center justify-center">
-            <pre className={`text-[0.4rem] leading-[0.4rem] font-mono whitespace-pre ${colorClasses.text}`}>
-              {attackInfo.pixelArt}
-            </pre>
+        {!defenseAttempted ? (
+          <div className="text-white text-xs mb-1 pixel-text">
+            MOVE TO DEFEND!
           </div>
-          
-          <div className="flex flex-col items-start">
-            <span className="font-pixel text-white text-[10px]">
-              {gameState.attackNotification.attackerName}:
-            </span>
-            
-            <span className={`font-pixel ${colorClasses.text} text-xs animate-pulse`}>
-              {attackInfo.description}
-            </span>
+        ) : defended ? (
+          <div className={`text-xs mb-1 pixel-text ${defenseSuccessful ? 'text-green-400' : 'text-red-400'}`}>
+            {defenseSuccessful ? 'SUCCESS!' : 'FAILED!'}
           </div>
-        </div>
+        ) : null}
         
-        {/* Defense Button - more compact */}
-        {showDefenseButton && !defended && (
-          <div className="mt-1">
-            <div className="w-full bg-gray-900 h-3 p-[1px] border border-gray-700 mb-1">
-              <div 
-                className={`h-full ${
-                  defenseChance > 50 ? 'bg-green-500' : 
-                  defenseChance > 25 ? 'bg-yellow-500' : 
-                  'bg-red-500'
-                } transition-all duration-200`}
-                style={{ width: `${defenseChance}%` }}
-              >
-                {/* Add pixelated edge pattern */}
-                <div className="flex h-full">
-                  {Array.from({ length: Math.ceil(defenseChance / 10) }).map((_, i) => (
-                    <div 
-                      key={`pixel-bar-${i}`}
-                      className="w-[10%] h-full border-r border-gray-900"
-                    />
-                  ))}
-                </div>
-              </div>
-            </div>
-            
-            <button 
-              onClick={handleDefend}
-              className={`${colorClasses.buttonBg} ${colorClasses.buttonHover} 
-                         text-white font-pixel text-[10px] py-1 px-2 w-full
-                         border border-gray-700 transition-colors
-                         ${blinkState ? 'animate-pulse' : ''}`}
-              style={{ 
-                boxShadow: `0 2px 0 0 rgba(0,0,0,0.5)`,
-                textShadow: '1px 1px 0 #000'
-              }}
-            >
-              DEFEND ({defenseChance}%)
-            </button>
-          </div>
-        )}
-        
-        {/* Defense Result - more compact */}
-        {defended && (
-          <div className={`text-center font-pixel text-[10px] py-1 
-                          border border-gray-800
-                          ${defenseSuccessful ? 'bg-green-900 text-green-300' : 'bg-red-900 text-red-300'}`}>
-            {defenseSuccessful ? 
-              '>>SUCCESS<<' : 
-              '>>FAILED<<'}
-          </div>
-        )}
-        
-        {/* Bottom border pixel design - more compact */}
-        <div className="flex justify-between mt-1 overflow-hidden">
-          {Array.from({ length: 10 }).map((_, i) => (
-            <div 
-              key={`pixel-bottom-${i}`}
-              className={`w-2 h-2 ${i % 2 === 0 ? 'bg-black' : colorClasses.bg}`}
-            />
-          ))}
+        {/* Defense chance meter */}
+        <div className="w-full bg-gray-700 h-2 rounded-full overflow-hidden">
+          <div 
+            className={`h-full ${attackInfo.color === 'red' ? 'bg-red-500' : attackInfo.color === 'blue' ? 'bg-blue-500' : attackInfo.color === 'green' ? 'bg-green-500' : attackInfo.color === 'purple' ? 'bg-purple-500' : 'bg-indigo-500'}`}
+            style={{ width: `${defenseChance}%` }}
+          ></div>
         </div>
       </div>
     </div>

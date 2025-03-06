@@ -6,5 +6,6 @@ export enum AttackType {
   SPIKE_PLATFORM = 'spike_platform',
   SPEED_UP = 'speed_up',
   NARROW_PLATFORM = 'narrow_platform',
-  REVERSE_CONTROLS = 'reverse_controls'
+  REVERSE_CONTROLS = 'reverse_controls',
+  TRUE_REVERSE = 'true_reverse'  // Reverses controls without flipping the board
 } 

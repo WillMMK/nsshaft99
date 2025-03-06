@@ -22,6 +22,45 @@ const GameWithMultiplayer: React.FC = () => {
   const [isDead, setIsDead] = useState<boolean>(false);
   const gameRef = useRef<HTMLDivElement>(null);
 
+  // Track player movement for defense system
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowLeft') {
+        setGameState(prev => ({
+          ...prev,
+          isMovingLeft: true
+        }));
+      } else if (e.key === 'ArrowRight') {
+        setGameState(prev => ({
+          ...prev,
+          isMovingRight: true
+        }));
+      }
+    };
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowLeft') {
+        setGameState(prev => ({
+          ...prev,
+          isMovingLeft: false
+        }));
+      } else if (e.key === 'ArrowRight') {
+        setGameState(prev => ({
+          ...prev,
+          isMovingRight: false
+        }));
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
+  }, [setGameState]);
+
   // Handle multiplayer attacks
   useEffect(() => {
     if (!isMultiplayer) return;
@@ -40,19 +79,42 @@ const GameWithMultiplayer: React.FC = () => {
         },
         activeEffects: {
           ...prev.activeEffects,
-          [data.attackType]: true
+          spikePlatforms: data.attackType === AttackType.SPIKE_PLATFORM ? true : prev.activeEffects.spikePlatforms,
+          speedUp: data.attackType === AttackType.SPEED_UP ? true : prev.activeEffects.speedUp,
+          narrowPlatforms: data.attackType === AttackType.NARROW_PLATFORM ? true : prev.activeEffects.narrowPlatforms,
+          reverseControls: data.attackType === AttackType.REVERSE_CONTROLS ? true : prev.activeEffects.reverseControls
         }
       }));
       
-      // Set a timeout to clear the effect
+      // Set a timeout to clear the effect automatically after 5 seconds
+      // (this will happen if player doesn't defend or fails defense)
       setTimeout(() => {
-        setGameState(prev => ({
-          ...prev,
-          activeEffects: {
-            ...prev.activeEffects,
-            [data.attackType]: false
+        setGameState(prev => {
+          // Only clear the effect if it's still active
+          // (defense might have already cleared it)
+          const attackType = data.attackType;
+          const isEffectActive = (
+            (attackType === AttackType.SPIKE_PLATFORM && prev.activeEffects.spikePlatforms) ||
+            (attackType === AttackType.SPEED_UP && prev.activeEffects.speedUp) ||
+            (attackType === AttackType.NARROW_PLATFORM && prev.activeEffects.narrowPlatforms) ||
+            (attackType === AttackType.REVERSE_CONTROLS && prev.activeEffects.reverseControls)
+          );
+          
+          if (isEffectActive) {
+            return {
+              ...prev,
+              activeEffects: {
+                ...prev.activeEffects,
+                spikePlatforms: attackType === AttackType.SPIKE_PLATFORM ? false : prev.activeEffects.spikePlatforms,
+                speedUp: attackType === AttackType.SPEED_UP ? false : prev.activeEffects.speedUp,
+                narrowPlatforms: attackType === AttackType.NARROW_PLATFORM ? false : prev.activeEffects.narrowPlatforms,
+                reverseControls: attackType === AttackType.REVERSE_CONTROLS ? false : prev.activeEffects.reverseControls
+              }
+            };
           }
-        }));
+          
+          return prev; // No change if effect already cleared
+        });
       }, 5000); // Effects last for 5 seconds
     };
     

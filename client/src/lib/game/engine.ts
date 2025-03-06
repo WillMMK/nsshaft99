@@ -84,6 +84,7 @@ export class GameEngine {
   playerColors: Record<string, string> = {};
   activeAttacks: Attack[] = [];
   isControlsReversed: boolean = false;
+  isTrueReverse: boolean = false;
   narrowNextPlatforms: number = 0;
   private frameCount: number = 0;
   private onUpdateGameState?: (state: Partial<GameState>) => void;
@@ -318,8 +319,9 @@ export class GameEngine {
   }
 
   updateMovement(isMovingLeft: boolean, isMovingRight: boolean) {
-    // If controls are reversed, swap left and right
-    if (this.isControlsReversed) {
+    // Handle both reverse effects
+    if (this.isControlsReversed || this.isTrueReverse) {
+      // If controls are reversed by either effect, swap left and right
       const temp = isMovingLeft;
       isMovingLeft = isMovingRight;
       isMovingRight = temp;
@@ -1082,6 +1084,35 @@ export class GameEngine {
           });
         }, attack.duration || 5000);
         break;
+
+      case AttackType.TRUE_REVERSE:
+        // Reverse controls without visual flipping
+        this.isTrueReverse = true;
+        console.log('Game Engine: True Reverse set to TRUE');
+        this.flashScreen('#8800FF', 0.3); // Different purple flash
+        
+        // Update game state
+        this.onUpdateGameState?.({
+          activeEffects: {
+            trueReverse: true
+          }
+        });
+        
+        // Set a timeout to reset the controls
+        setTimeout(() => {
+          this.isTrueReverse = false;
+          console.log('Game Engine: True Reverse reset to FALSE');
+          
+          this.onUpdateGameState?.({
+            activeEffects: {
+              trueReverse: false
+            }
+          });
+        }, attack.duration || 5000);
+        break;
+        
+      default:
+        console.warn('Unknown attack type:', attack.type);
     }
   }
 
@@ -1142,6 +1173,7 @@ export class GameEngine {
     this.otherPlayers = {};
     this.activeAttacks = [];
     this.isControlsReversed = false;
+    this.isTrueReverse = false;
     this.narrowNextPlatforms = 0;
     
     // Clear the canvas
@@ -1165,7 +1197,80 @@ export class GameEngine {
       }
     }
     
+    // Apply true reverse effect (just controls, no visual flip)
+    if (gameState.activeEffects.trueReverse !== undefined) {
+      this.isTrueReverse = gameState.activeEffects.trueReverse;
+      
+      // No visual change needed for true reverse
+      if (this.isTrueReverse) {
+        this.flashScreen('#8800FF', 0.3); // Purple flash to indicate effect
+      }
+    }
+    
     // Apply other effects as needed
-    // ...
+    // Handle spike platforms effect
+    if (gameState.activeEffects.spikePlatforms !== undefined && gameState.activeEffects.spikePlatforms) {
+      // Add spike platforms if the effect was just activated
+      if (!this._lastActiveEffects?.spikePlatforms) {
+        // Add multiple spike platforms near the player for more challenge
+        for (let i = 0; i < 3; i++) {
+          this.addSpikePlatform();
+        }
+        // Visual feedback
+        this.flashScreen('#FF0000', 0.3); // Red flash
+      }
+    }
+    
+    // Handle speed up effect
+    if (gameState.activeEffects.speedUp !== undefined) {
+      // Check if the effect has changed
+      if (gameState.activeEffects.speedUp !== this._lastActiveEffects?.speedUp) {
+        if (gameState.activeEffects.speedUp) {
+          // Activate speed up
+          this.SCROLL_SPEED *= 2.0;
+          this.MOVE_SPEED *= 1.5;
+          // Visual feedback
+          this.flashScreen('#0000FF', 0.3); // Blue flash
+        } else {
+          // Deactivate speed up
+          this.SCROLL_SPEED /= 2.0;
+          this.MOVE_SPEED /= 1.5;
+        }
+      }
+    }
+    
+    // Handle narrow platforms effect
+    if (gameState.activeEffects.narrowPlatforms !== undefined) {
+      // Check if the effect has changed
+      if (gameState.activeEffects.narrowPlatforms !== this._lastActiveEffects?.narrowPlatforms) {
+        if (gameState.activeEffects.narrowPlatforms) {
+          // Activate narrow platforms
+          this.narrowNextPlatforms = 8;
+          // Reduce current platform widths
+          this.platforms.forEach(platform => {
+            if (platform.width > MIN_PLATFORM_WIDTH * 2) {
+              platform.width *= 0.7; // Reduce width by 30%
+            }
+          });
+          // Visual feedback
+          this.flashScreen('#00FF00', 0.3); // Green flash
+        } else {
+          // Effect ended, but we can't undo the narrowing that was already applied
+          this.narrowNextPlatforms = 0;
+        }
+      }
+    }
+    
+    // Store current active effects state for comparison in the next update
+    this._lastActiveEffects = { ...gameState.activeEffects };
   }
+  
+  // Track last active effects state to detect changes
+  private _lastActiveEffects?: {
+    spikePlatforms?: boolean;
+    speedUp?: boolean;
+    narrowPlatforms?: boolean;
+    reverseControls?: boolean;
+    trueReverse?: boolean;
+  };
 }

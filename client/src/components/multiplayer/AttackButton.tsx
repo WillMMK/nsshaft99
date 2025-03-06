@@ -88,7 +88,15 @@ const AttackButton: React.FC<AttackButtonProps> = ({ score }) => {
             <button 
               onClick={() => handleAttack(AttackType.REVERSE_CONTROLS)}
               className="bg-purple-700 hover:bg-purple-600 text-white p-2 rounded text-xs font-bold transition-colors"
-              title="Reverse opponent's controls"
+              title="Flip opponent's screen and controls"
+            >
+              Flip Controls
+            </button>
+            <button 
+              onClick={() => handleAttack(AttackType.TRUE_REVERSE)}
+              className="bg-indigo-700 hover:bg-indigo-600 text-white p-2 rounded text-xs font-bold transition-colors"
+              title="Reverse controls without flipping the screen"
+              style={{ gridColumn: "span 2" }}
             >
               Reverse Controls
             </button>

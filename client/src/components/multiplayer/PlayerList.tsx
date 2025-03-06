@@ -98,6 +98,13 @@ const PlayerList: React.FC = () => {
               onClick={() => handleAttack(AttackType.REVERSE_CONTROLS)}
               className="bg-purple-700 hover:bg-purple-600 text-white p-1 rounded text-[10px] font-bold"
             >
+              Flip Controls
+            </button>
+            <button 
+              onClick={() => handleAttack(AttackType.TRUE_REVERSE)}
+              className="bg-indigo-700 hover:bg-indigo-600 text-white p-1 rounded text-[10px] font-bold"
+              style={{ gridColumn: "span 2" }}
+            >
               Reverse Controls
             </button>
           </div>

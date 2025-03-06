@@ -6,6 +6,7 @@ interface ActiveEffects {
   speedUp: boolean;
   narrowPlatforms: boolean;
   reverseControls: boolean;
+  trueReverse: boolean;
 }
 
 interface AttackNotification {
@@ -21,6 +22,8 @@ export interface GameState {
   health: number;
   activeEffects: ActiveEffects;
   attackNotification: AttackNotification | null;
+  isMovingLeft: boolean;
+  isMovingRight: boolean;
 }
 
 interface GameStateContextType {
@@ -38,9 +41,12 @@ const initialGameState: GameState = {
     spikePlatforms: false,
     speedUp: false,
     narrowPlatforms: false,
-    reverseControls: false
+    reverseControls: false,
+    trueReverse: false
   },
-  attackNotification: null
+  attackNotification: null,
+  isMovingLeft: false,
+  isMovingRight: false
 };
 
 const GameStateContext = createContext<GameStateContextType | undefined>(undefined);
@@ -60,9 +66,12 @@ export const GameStateProvider: React.FC<{ children: ReactNode }> = ({ children 
         spikePlatforms: false,
         speedUp: false,
         narrowPlatforms: false,
-        reverseControls: false
+        reverseControls: false,
+        trueReverse: false
       },
-      attackNotification: null
+      attackNotification: null,
+      isMovingLeft: false,
+      isMovingRight: false
     });
   };
 
