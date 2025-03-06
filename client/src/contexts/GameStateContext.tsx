@@ -14,7 +14,7 @@ interface AttackNotification {
   timestamp: number;
 }
 
-interface GameState {
+export interface GameState {
   isRunning: boolean;
   isPaused: boolean;
   score: number;

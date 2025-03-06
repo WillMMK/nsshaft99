@@ -31,8 +31,9 @@ import {
 } from './constants';
 import { Platform, PlatformType, createPlatform, drawPlatform } from './platform';
 import { drawCharacter, Character } from './character';
-import { playSound } from './audio';
+import { playSound, playAttackSound } from './audio';
 import { Player, AttackType } from '@/types';
+import { GameState } from '@/contexts/GameStateContext';
 
 // Define a NetworkPlayer interface for backward compatibility
 interface NetworkPlayer {
@@ -85,19 +86,22 @@ export class GameEngine {
   isControlsReversed: boolean = false;
   narrowNextPlatforms: number = 0;
   private frameCount: number = 0;
+  private onUpdateGameState?: (state: Partial<GameState>) => void;
 
   constructor(
     canvas: HTMLCanvasElement, 
     onUpdateHealth: (health: number) => void,
     onUpdateScore: (score: number) => void,
     onGameOver: () => void,
-    isMultiplayer: boolean = false
+    isMultiplayer: boolean = false,
+    onUpdateGameState?: (state: Partial<GameState>) => void
   ) {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d')!;
     this.onUpdateHealth = onUpdateHealth;
     this.onUpdateScore = onUpdateScore;
     this.onGameOver = onGameOver;
+    this.onUpdateGameState = onUpdateGameState;
 
     // Increase difficulty parameters
     this.MOVE_SPEED = 5.5;              // Faster horizontal movement (was 5)
@@ -319,6 +323,7 @@ export class GameEngine {
       const temp = isMovingLeft;
       isMovingLeft = isMovingRight;
       isMovingRight = temp;
+      console.log('Movement reversed: left =', isMovingLeft, 'right =', isMovingRight);
     }
     
     this.isMovingLeft = isMovingLeft;
@@ -955,33 +960,126 @@ export class GameEngine {
     });
   }
 
-  applyAttack(attack: Attack): void {
-    this.activeAttacks.push(attack);
+  applyAttack(attack: Partial<Attack> & { type: AttackType }): void {
+    // Add to active attacks list if it has the required fields
+    if (attack.fromPlayerId && attack.toPlayerId) {
+      this.activeAttacks.push(attack as Attack);
+    }
+    
+    // Play attack sound
+    playAttackSound(attack.type);
     
     // Apply immediate effects
     switch (attack.type as AttackType) {
       case AttackType.SPIKE_PLATFORM:
-        // Add a spike platform near the player
-        this.addSpikePlatform();
-        break;
-      case AttackType.SPEED_UP:
-        // Temporarily increase scroll speed
-        this.SCROLL_SPEED *= 1.5;
-        // Set a timeout to reset the speed
+        // Add multiple spike platforms near the player for more challenge
+        for (let i = 0; i < 3; i++) {
+          this.addSpikePlatform();
+        }
+        // Add visual feedback
+        this.flashScreen('#FF0000', 0.3); // Red flash
+        
+        // Update game state
+        this.onUpdateGameState?.({
+          activeEffects: {
+            spikePlatforms: true
+          }
+        });
+        
+        // Set timeout to clear effect
         setTimeout(() => {
-          this.SCROLL_SPEED /= 1.5;
+          this.onUpdateGameState?.({
+            activeEffects: {
+              spikePlatforms: false
+            }
+          });
         }, attack.duration || 5000);
         break;
-      case AttackType.NARROW_PLATFORM:
-        // Make the next few platforms narrower
-        this.narrowNextPlatforms = 5;
+        
+      case AttackType.SPEED_UP:
+        // Make speed increase more dramatic
+        this.SCROLL_SPEED *= 2.0; // Increased from 1.5
+        this.MOVE_SPEED *= 1.5; // Also increase player movement speed
+        // Add visual feedback
+        this.flashScreen('#0000FF', 0.3); // Blue flash
+        
+        // Update game state
+        this.onUpdateGameState?.({
+          activeEffects: {
+            speedUp: true
+          }
+        });
+        
+        // Set a timeout to reset the speed
+        setTimeout(() => {
+          this.SCROLL_SPEED /= 2.0;
+          this.MOVE_SPEED /= 1.5;
+          
+          this.onUpdateGameState?.({
+            activeEffects: {
+              speedUp: false
+            }
+          });
+        }, attack.duration || 5000);
         break;
+        
+      case AttackType.NARROW_PLATFORM:
+        // Make platforms significantly narrower
+        this.narrowNextPlatforms = 8; // Increased from 5
+        // Reduce current platform widths
+        this.platforms.forEach(platform => {
+          if (platform.width > MIN_PLATFORM_WIDTH * 2) {
+            platform.width *= 0.7; // Reduce width by 30%
+          }
+        });
+        // Add visual feedback
+        this.flashScreen('#00FF00', 0.3); // Green flash
+        
+        // Update game state
+        this.onUpdateGameState?.({
+          activeEffects: {
+            narrowPlatforms: true
+          }
+        });
+        
+        // Set timeout to clear effect
+        setTimeout(() => {
+          this.onUpdateGameState?.({
+            activeEffects: {
+              narrowPlatforms: false
+            }
+          });
+        }, attack.duration || 5000);
+        break;
+        
       case AttackType.REVERSE_CONTROLS:
-        // Reverse the controls
+        // Reverse the controls with visual feedback
         this.isControlsReversed = true;
-        // Set a timeout to reset the controls
+        console.log('Game Engine: Controls reversed set to TRUE');
+        this.flashScreen('#FF00FF', 0.3); // Purple flash
+        
+        // Add screen rotation effect
+        this.canvas.style.transform = 'rotate(180deg)';
+        this.canvas.style.transition = 'transform 0.5s';
+        
+        // Update game state
+        this.onUpdateGameState?.({
+          activeEffects: {
+            reverseControls: true
+          }
+        });
+        
+        // Set a timeout to reset the controls and rotation
         setTimeout(() => {
           this.isControlsReversed = false;
+          console.log('Game Engine: Controls reversed reset to FALSE');
+          this.canvas.style.transform = 'rotate(0deg)';
+          
+          this.onUpdateGameState?.({
+            activeEffects: {
+              reverseControls: false
+            }
+          });
         }, attack.duration || 5000);
         break;
     }
@@ -1000,6 +1098,29 @@ export class GameEngine {
     );
     
     this.platforms.push(platform);
+  }
+
+  // Add new method for screen flash effect
+  private flashScreen(color: string, opacity: number): void {
+    const overlay = document.createElement('div');
+    overlay.style.position = 'absolute';
+    overlay.style.top = '0';
+    overlay.style.left = '0';
+    overlay.style.width = '100%';
+    overlay.style.height = '100%';
+    overlay.style.backgroundColor = color;
+    overlay.style.opacity = opacity.toString();
+    overlay.style.pointerEvents = 'none';
+    overlay.style.zIndex = '1000';
+    overlay.style.transition = 'opacity 0.3s';
+    
+    this.canvas.parentElement?.appendChild(overlay);
+    
+    // Remove the overlay after animation
+    setTimeout(() => {
+      overlay.style.opacity = '0';
+      setTimeout(() => overlay.remove(), 300);
+    }, 300);
   }
 
   /**
@@ -1027,5 +1148,24 @@ export class GameEngine {
     if (this.ctx) {
       this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
     }
+  }
+
+  // Update based on game state
+  syncGameState(gameState: GameState) {
+    // Apply game state effects to the engine
+    if (gameState.activeEffects.reverseControls !== undefined) {
+      this.isControlsReversed = gameState.activeEffects.reverseControls;
+      
+      // Update visual feedback if needed
+      if (this.isControlsReversed) {
+        this.canvas.style.transform = 'rotate(180deg)';
+        this.canvas.style.transition = 'transform 0.5s';
+      } else {
+        this.canvas.style.transform = 'rotate(0deg)';
+      }
+    }
+    
+    // Apply other effects as needed
+    // ...
   }
 }

@@ -22,4 +22,12 @@ export enum AttackType {
   SPEED_UP = 'speed_up',
   NARROW_PLATFORM = 'narrow_platform',
   REVERSE_CONTROLS = 'reverse_controls'
+}
+
+export interface NetworkPlayer {
+  id: string;
+  name: string;
+  score: number;
+  isAlive: boolean;
+  isReady: boolean;
 } 

@@ -77,24 +77,87 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ onJoinMultiplayer }) => {
     playerId,
     players,
     updateScore,
-    reportDeath
+    reportDeath,
+    onUpdateGameState: (state) => {
+      setGameState(prev => ({
+        ...prev,
+        activeEffects: {
+          ...prev.activeEffects,
+          ...state.activeEffects
+        }
+      }));
+    }
   });
+
+  // Handle direct attack events that need to be passed to the game engine
+  useEffect(() => {
+    // This function will be used to create an event bus for attack handling
+    const attackHandler = (event: CustomEvent) => {
+      console.log("Attack event received:", event.detail);
+      
+      // Update the game state to reflect the attack
+      setGameState(prev => ({
+        ...prev,
+        activeEffects: {
+          ...prev.activeEffects,
+          [event.detail.type]: true
+        }
+      }));
+      
+      // Set timeout to clear the effect
+      setTimeout(() => {
+        setGameState(prev => ({
+          ...prev,
+          activeEffects: {
+            ...prev.activeEffects,
+            [event.detail.type]: false
+          }
+        }));
+      }, event.detail.duration || 5000);
+    };
+    
+    // Add event listener for the attack event
+    document.addEventListener('apply-attack', attackHandler as EventListener);
+    
+    return () => {
+      // Clean up event listener
+      document.removeEventListener('apply-attack', attackHandler as EventListener);
+    };
+  }, [setGameState]);
+  
+  // Sync the game state active effects with the game engine
+  useEffect(() => {
+    // Access the game engine directly from the hook
+    const syncGameEffects = () => {
+      // Expose the game engine from the hook's context
+      const gameEngine = (window as any).__gameEngine;
+      
+      if (gameEngine) {
+        // Call the new sync method
+        gameEngine.syncGameState(gameState);
+      }
+    };
+    
+    // Try to sync effects
+    syncGameEffects();
+    
+    return () => {
+      // Any cleanup needed
+    };
+  }, [gameState.activeEffects]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (!isRunning) return;
       
-      // Check if controls are reversed due to an attack
-      const isReversed = gameState.activeEffects.reverseControls;
-      
       if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') {
         movingLeft.current = true;
         movingRight.current = false;
-        updateMovement(isReversed ? false : true, isReversed ? true : false);
+        updateMovement(true, false);
       } else if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
         movingRight.current = true;
         movingLeft.current = false;
-        updateMovement(isReversed ? true : false, isReversed ? false : true);
+        updateMovement(false, true);
       }
     };
 
@@ -117,22 +180,19 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ onJoinMultiplayer }) => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [isRunning, updateMovement, gameState.activeEffects.reverseControls]);
+  }, [isRunning, updateMovement]);
 
   const handleTouchStart = (direction: 'left' | 'right') => {
     if (!isRunning) return;
     
-    // Check if controls are reversed due to an attack
-    const isReversed = gameState.activeEffects.reverseControls;
-    
     if (direction === 'left') {
       movingLeft.current = true;
       movingRight.current = false;
-      updateMovement(isReversed ? false : true, isReversed ? true : false);
+      updateMovement(true, false);
     } else {
       movingRight.current = true;
       movingLeft.current = false;
-      updateMovement(isReversed ? true : false, isReversed ? false : true);
+      updateMovement(false, true);
     }
   };
 
