@@ -1,4 +1,7 @@
 import { AttackType } from '@/types';
+import { GameState } from '@/contexts/GameStateContext';
+import { playSound } from './audio';
+
 // Define PowerUpType from constants since it's missing in the types.ts file
 export enum PowerUpType {
   INVINCIBILITY = 'invincibility',
@@ -17,9 +20,12 @@ export class EffectManager {
 
   constructor(updateGameState: (state: Partial<GameState>) => void) {
     this.updateGameState = updateGameState;
+    console.log("EffectManager initialized");
   }
 
-  handleAttackItem(powerUpType: PowerUpType, otherPlayers: Record<string, Player>) {
+  handleAttackItem(powerUpType: PowerUpType, otherPlayers: Record<string, any>) {
+    console.log("handleAttackItem called with powerUpType:", powerUpType);
+    
     // Map power-up to attack type
     let attackType: AttackType;
 
@@ -52,17 +58,29 @@ export class EffectManager {
     }
 
     const randomTarget = targets[Math.floor(Math.random() * targets.length)];
-    console.log(`Sending ${attackType} attack to player ${randomTarget}`);
+    const targetName = otherPlayers[randomTarget]?.name || "Unknown";
+    console.log(`Selected target ${targetName} (${randomTarget}) for ${attackType} attack`);
 
-    // Trigger attack via network
-    if (window.__gameEngine?.effectManager) {
-      const networkManager = (window as any).networkManager;
-      if (networkManager) {
-        networkManager.sendAttack(randomTarget, attackType);
-        console.log(`Attack ${attackType} sent to ${randomTarget}`);
-      } else {
-        console.error("Network manager not found, can't send attack");
-      }
+    // Play attack sound
+    playSound('attack');
+
+    // Get the network manager from window
+    const networkManager = (window as any).networkManager;
+    if (networkManager) {
+      console.log("Sending attack through network manager");
+      networkManager.sendAttack(randomTarget, attackType);
+      
+      // Update game state to show attack was sent
+      this.updateGameState({
+        lastAttackSent: {
+          type: attackType,
+          targetId: randomTarget,
+          targetName: targetName,
+          timestamp: Date.now()
+        }
+      });
+    } else {
+      console.error("Network manager not found - attack cannot be sent");
     }
   }
 }

@@ -2,7 +2,6 @@ import {
   PLATFORM_HEIGHT, 
   PLATFORM_COLORS,
   SPIKE_HEIGHT,
-  PowerUpType,
   POWER_UP_SIZE,
   POWER_UP_SPAWN_CHANCE,
   ATTACK_ITEM_SPAWN_CHANCE,
@@ -10,6 +9,7 @@ import {
   ATTACK_ITEM_COLORS,
   ATTACK_ITEM_ICONS
 } from './constants';
+import { PowerUpType } from './EffectManager';
 
 // Platform types
 export enum PlatformType {
@@ -165,33 +165,33 @@ export function drawPowerUp(ctx: CanvasRenderingContext2D, powerUp: PowerUp) {
       text = '♥';
       break;
     case PowerUpType.SHIELD:
-      color = ATTACK_ITEM_COLORS[PowerUpType.SHIELD];
-      text = ATTACK_ITEM_ICONS[PowerUpType.SHIELD];
+      color = ATTACK_ITEM_COLORS['shield'];
+      text = ATTACK_ITEM_ICONS['shield'];
       isAttackItem = true;
       break;
     case PowerUpType.ATTACK_SPIKE_PLATFORM:
-      color = ATTACK_ITEM_COLORS[PowerUpType.ATTACK_SPIKE_PLATFORM];
-      text = ATTACK_ITEM_ICONS[PowerUpType.ATTACK_SPIKE_PLATFORM];
+      color = ATTACK_ITEM_COLORS['attack_spike_platform'];
+      text = ATTACK_ITEM_ICONS['attack_spike_platform'];
       isAttackItem = true;
       break;
     case PowerUpType.ATTACK_SPEED_UP:
-      color = ATTACK_ITEM_COLORS[PowerUpType.ATTACK_SPEED_UP];
-      text = ATTACK_ITEM_ICONS[PowerUpType.ATTACK_SPEED_UP];
+      color = ATTACK_ITEM_COLORS['attack_speed_up'];
+      text = ATTACK_ITEM_ICONS['attack_speed_up'];
       isAttackItem = true;
       break;
     case PowerUpType.ATTACK_NARROW_PLATFORM:
-      color = ATTACK_ITEM_COLORS[PowerUpType.ATTACK_NARROW_PLATFORM];
-      text = ATTACK_ITEM_ICONS[PowerUpType.ATTACK_NARROW_PLATFORM];
+      color = ATTACK_ITEM_COLORS['attack_narrow_platform'];
+      text = ATTACK_ITEM_ICONS['attack_narrow_platform'];
       isAttackItem = true;
       break;
     case PowerUpType.ATTACK_REVERSE_CONTROLS:
-      color = ATTACK_ITEM_COLORS[PowerUpType.ATTACK_REVERSE_CONTROLS];
-      text = ATTACK_ITEM_ICONS[PowerUpType.ATTACK_REVERSE_CONTROLS];
+      color = ATTACK_ITEM_COLORS['attack_reverse_controls'];
+      text = ATTACK_ITEM_ICONS['attack_reverse_controls'];
       isAttackItem = true;
       break;
     case PowerUpType.ATTACK_TRUE_REVERSE:
-      color = ATTACK_ITEM_COLORS[PowerUpType.ATTACK_TRUE_REVERSE];
-      text = ATTACK_ITEM_ICONS[PowerUpType.ATTACK_TRUE_REVERSE];
+      color = ATTACK_ITEM_COLORS['attack_true_reverse'];
+      text = ATTACK_ITEM_ICONS['attack_true_reverse'];
       isAttackItem = true;
       break;
   }

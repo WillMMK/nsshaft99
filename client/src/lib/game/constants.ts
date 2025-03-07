@@ -67,22 +67,24 @@ export const HEALTH_BOOST_AMOUNT = 50; // +50% health
 // Attack item constants
 export const ATTACK_ITEM_SPAWN_CHANCE = 0.4; // 40% chance to spawn an attack item in multiplayer
 export const SHIELD_SPAWN_CHANCE = 0.2; // 20% chance to spawn a shield in multiplayer
+
+// Colors and icons are now defined using string literals since PowerUpType is in EffectManager
 export const ATTACK_ITEM_COLORS = {
-  // ATTACK_SPIKE_PLATFORM: '#FF5733', // Red
-  // ATTACK_SPEED_UP: '#3357FF', // Blue
-  // ATTACK_NARROW_PLATFORM: '#33FF57', // Green
-  // ATTACK_REVERSE_CONTROLS: '#FF33F5', // Purple
-  // ATTACK_TRUE_REVERSE: '#8333FF', // Indigo
-  // SHIELD: '#F5FF33' // Yellow
+  'attack_spike_platform': '#FF5733', // Red
+  'attack_speed_up': '#3357FF', // Blue
+  'attack_narrow_platform': '#33FF57', // Green
+  'attack_reverse_controls': '#FF33F5', // Purple
+  'attack_true_reverse': '#8333FF', // Indigo
+  'shield': '#F5FF33' // Yellow
 };
 
 export const ATTACK_ITEM_ICONS = {
-  // ATTACK_SPIKE_PLATFORM: '⚡', // Spike Platform
-  // ATTACK_SPEED_UP: '🏃', // Speed Up
-  // ATTACK_NARROW_PLATFORM: '↔️', // Narrow Platform
-  // ATTACK_REVERSE_CONTROLS: '🔄', // Reverse Controls
-  // ATTACK_TRUE_REVERSE: '⇄', // True Reverse
-  // SHIELD: '🛡️' // Shield
+  'attack_spike_platform': '⚡', // Spike Platform
+  'attack_speed_up': '🏃', // Speed Up
+  'attack_narrow_platform': '↔️', // Narrow Platform
+  'attack_reverse_controls': '🔄', // Reverse Controls
+  'attack_true_reverse': '⇄', // True Reverse
+  'shield': '��️' // Shield
 };
 
 // Multiplayer constants

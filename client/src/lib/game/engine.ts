@@ -606,6 +606,7 @@ export class GameEngine {
                      this.character.y < powerUp.y + powerUp.height;
       
       if (collidesX && collidesY) {
+        console.log("Collected power-up:", powerUp.type);
         platform.powerUp.active = false;
         
         switch (powerUp.type) {
@@ -641,9 +642,15 @@ export class GameEngine {
           case PowerUpType.ATTACK_REVERSE_CONTROLS:
           case PowerUpType.ATTACK_TRUE_REVERSE:
             if (this.isMultiplayer && this.otherPlayers) {
+              console.log("Handling attack item:", powerUp.type);
               this.effectManager.handleAttackItem(powerUp.type, this.otherPlayers);
+            } else {
+              console.log("Attack item collected but multiplayer is not active");
             }
             break;
+            
+          default:
+            console.warn("Unknown power-up type:", powerUp.type);
         }
       }
     }
