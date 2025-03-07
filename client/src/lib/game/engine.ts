@@ -36,6 +36,7 @@ import { drawCharacter, Character } from './character';
 import { playSound, playAttackSound } from './audio';
 import { Player, AttackType } from '@/types';
 import { GameState } from '@/contexts/GameStateContext';
+import { EffectManager } from './EffectManager';
 
 // Define a NetworkPlayer interface for backward compatibility
 interface NetworkPlayer {
@@ -90,6 +91,7 @@ export class GameEngine {
   narrowNextPlatforms: number = 0;
   private frameCount: number = 0;
   private onUpdateGameState?: (state: Partial<GameState>) => void;
+  private effectManager: EffectManager;
 
   constructor(
     canvas: HTMLCanvasElement, 
@@ -141,6 +143,8 @@ export class GameEngine {
 
     // Initialize multiplayer
     this.isMultiplayer = isMultiplayer;
+
+    this.effectManager = new EffectManager(onUpdateGameState || (() => {}));
   }
 
   initializePlatforms() {
@@ -626,70 +630,19 @@ export class GameEngine {
             break;
             
           case PowerUpType.SHIELD:
-            // Add shield to player
             this.onUpdateGameState?.({
               hasShield: true
             });
-            playSound('jump');
-            console.log("Shield activated!");
             break;
             
-          // Handle attack items
+          // Handle attack items using EffectManager
           case PowerUpType.ATTACK_SPIKE_PLATFORM:
           case PowerUpType.ATTACK_SPEED_UP:
           case PowerUpType.ATTACK_NARROW_PLATFORM:
           case PowerUpType.ATTACK_REVERSE_CONTROLS:
           case PowerUpType.ATTACK_TRUE_REVERSE:
-            if (this.isMultiplayer) {
-              // Map PowerUpType to AttackType
-              let attackType: AttackType;
-              
-              switch (powerUp.type) {
-                case PowerUpType.ATTACK_SPIKE_PLATFORM:
-                  attackType = AttackType.SPIKE_PLATFORM;
-                  break;
-                case PowerUpType.ATTACK_SPEED_UP:
-                  attackType = AttackType.SPEED_UP;
-                  break;
-                case PowerUpType.ATTACK_NARROW_PLATFORM:
-                  attackType = AttackType.NARROW_PLATFORM;
-                  break;
-                case PowerUpType.ATTACK_REVERSE_CONTROLS:
-                  attackType = AttackType.REVERSE_CONTROLS;
-                  break;
-                case PowerUpType.ATTACK_TRUE_REVERSE:
-                  attackType = AttackType.TRUE_REVERSE;
-                  break;
-                default:
-                  console.error("Unknown attack type:", powerUp.type);
-                  return;
-              }
-              
-              // Get all other players (excluding self)
-              const playersArray = Object.keys(this.otherPlayers);
-              
-              if (playersArray.length > 0) {
-                // Pick random target
-                const randomTargetId = playersArray[Math.floor(Math.random() * playersArray.length)];
-                const targetName = this.otherPlayers[randomTargetId]?.name || "Unknown";
-                
-                console.log(`Sending ${AttackType[attackType]} attack to player ${targetName} (${randomTargetId})`);
-                
-                // Send attack
-                this.onUpdateGameState?.({
-                  sendAttack: { attackType, targetId: randomTargetId }
-                });
-                
-                // Play sound
-                playSound('attack');
-                
-                // Show visual feedback
-                this.flashScreen(ATTACK_ITEM_COLORS[powerUp.type], 0.3);
-              } else {
-                console.log("No other players to attack!");
-              }
-            } else {
-              console.log("Attack item collected in single player mode - no effect");
+            if (this.isMultiplayer && this.otherPlayers) {
+              this.effectManager.handleAttackItem(powerUp.type, this.otherPlayers);
             }
             break;
         }
