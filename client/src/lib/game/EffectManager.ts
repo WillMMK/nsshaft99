@@ -1,26 +1,28 @@
 import { AttackType } from '@/types';
-import { PowerUpType } from './constants';
-import { playSound } from './audio';
-
-export interface Effect {
-  type: AttackType;
-  startTime: number;
-  duration: number;
-  targetId: string;
+// Define PowerUpType from constants since it's missing in the types.ts file
+export enum PowerUpType {
+  INVINCIBILITY = 'invincibility',
+  SLOW_FALL = 'slow_fall',
+  HEALTH_BOOST = 'health_boost',
+  SHIELD = 'shield',
+  ATTACK_SPIKE_PLATFORM = 'attack_spike_platform',
+  ATTACK_SPEED_UP = 'attack_speed_up',
+  ATTACK_NARROW_PLATFORM = 'attack_narrow_platform',
+  ATTACK_REVERSE_CONTROLS = 'attack_reverse_controls',
+  ATTACK_TRUE_REVERSE = 'attack_true_reverse'
 }
 
 export class EffectManager {
-  private activeEffects: Map<string, Effect>;
-  private onUpdateGameState: (state: any) => void;
+  private updateGameState: (state: Partial<GameState>) => void;
 
-  constructor(onUpdateGameState: (state: any) => void) {
-    this.activeEffects = new Map();
-    this.onUpdateGameState = onUpdateGameState;
+  constructor(updateGameState: (state: Partial<GameState>) => void) {
+    this.updateGameState = updateGameState;
   }
 
-  public handleAttackItem(powerUpType: PowerUpType, otherPlayers: Record<string, any>): void {
-    // Map power-up type to attack type
+  handleAttackItem(powerUpType: PowerUpType, otherPlayers: Record<string, Player>) {
+    // Map power-up to attack type
     let attackType: AttackType;
+
     switch (powerUpType) {
       case PowerUpType.ATTACK_SPIKE_PLATFORM:
         attackType = AttackType.SPIKE_PLATFORM;
@@ -38,69 +40,29 @@ export class EffectManager {
         attackType = AttackType.TRUE_REVERSE;
         break;
       default:
-        console.error("Unknown attack type:", powerUpType);
+        console.error("Invalid attack power-up type:", powerUpType);
         return;
     }
 
-    // Get all other players
-    const playersArray = Object.keys(otherPlayers);
-    
-    if (playersArray.length > 0) {
-      // Pick random target
-      const randomTargetId = playersArray[Math.floor(Math.random() * playersArray.length)];
-      const targetName = otherPlayers[randomTargetId]?.name || "Unknown";
-      
-      console.log(`Sending ${AttackType[attackType]} attack to player ${targetName} (${randomTargetId})`);
-      
-      // Send attack through game state
-      this.onUpdateGameState({
-        sendAttack: { attackType, targetId: randomTargetId }
-      });
-      
-      // Play attack sound
-      playSound('attack');
-      
-      // Add to active effects
-      this.addEffect({
-        type: attackType,
-        startTime: Date.now(),
-        duration: 5000, // 5 seconds default duration
-        targetId: randomTargetId
-      });
-    } else {
-      console.log("No other players to attack!");
+    // Select random target
+    const targets = Object.keys(otherPlayers);
+    if (targets.length === 0) {
+      console.log("No targets available for attack");
+      return;
+    }
+
+    const randomTarget = targets[Math.floor(Math.random() * targets.length)];
+    console.log(`Sending ${attackType} attack to player ${randomTarget}`);
+
+    // Trigger attack via network
+    if (window.__gameEngine?.effectManager) {
+      const networkManager = (window as any).networkManager;
+      if (networkManager) {
+        networkManager.sendAttack(randomTarget, attackType);
+        console.log(`Attack ${attackType} sent to ${randomTarget}`);
+      } else {
+        console.error("Network manager not found, can't send attack");
+      }
     }
   }
-
-  private addEffect(effect: Effect): void {
-    const effectKey = `${effect.type}-${effect.targetId}`;
-    this.activeEffects.set(effectKey, effect);
-    
-    // Set timeout to remove effect
-    setTimeout(() => {
-      this.removeEffect(effectKey);
-    }, effect.duration);
-  }
-
-  private removeEffect(effectKey: string): void {
-    if (this.activeEffects.has(effectKey)) {
-      this.activeEffects.delete(effectKey);
-      
-      // Update game state to remove effect
-      const [type, targetId] = effectKey.split('-');
-      this.onUpdateGameState({
-        activeEffects: {
-          [type]: false
-        }
-      });
-    }
-  }
-
-  public getActiveEffects(): Map<string, Effect> {
-    return this.activeEffects;
-  }
-
-  public clearAllEffects(): void {
-    this.activeEffects.clear();
-  }
-} 
+}

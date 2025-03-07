@@ -20,7 +20,6 @@ import {
   SCROLL_SPEED_INCREMENT,
   MAX_SCROLL_SPEED,
   SCORE_PER_INCREMENT,
-  PowerUpType,
   POWER_UP_SIZE,
   POWER_UP_SPAWN_CHANCE,
   INVINCIBILITY_POWER_UP_DURATION,
@@ -36,7 +35,7 @@ import { drawCharacter, Character } from './character';
 import { playSound, playAttackSound } from './audio';
 import { Player, AttackType } from '@/types';
 import { GameState } from '@/contexts/GameStateContext';
-import { EffectManager } from './EffectManager';
+import { EffectManager, PowerUpType } from './EffectManager';
 
 // Define a NetworkPlayer interface for backward compatibility
 interface NetworkPlayer {
@@ -91,7 +90,7 @@ export class GameEngine {
   narrowNextPlatforms: number = 0;
   private frameCount: number = 0;
   private onUpdateGameState?: (state: Partial<GameState>) => void;
-  private effectManager: EffectManager;
+  effectManager: EffectManager; // Changed from private to public
 
   constructor(
     canvas: HTMLCanvasElement, 

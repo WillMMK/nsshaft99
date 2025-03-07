@@ -4,6 +4,11 @@ import { useGameState } from '@/contexts/GameStateContext';
 import { AttackType } from '@/types';
 import { playAttackSound } from '@/lib/game/audio';
 
+// Debug helper
+function logAttack(message: string, data?: any) {
+  console.log(`[ATTACK SYSTEM] ${message}`, data || '');
+}
+
 const AttackNotification: React.FC = () => {
   const { players } = useMultiplayer();
   const { gameState, setGameState } = useGameState();

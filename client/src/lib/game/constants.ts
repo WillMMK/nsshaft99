@@ -56,19 +56,7 @@ export const SCORE_PER_INCREMENT = 1000;       // Increased from 100 to 1000 as 
 export const CEILING_SPIKE_COUNT = 10;
 
 // Power-up settings
-export enum PowerUpType {
-  INVINCIBILITY,
-  SLOW_FALL,
-  HEALTH_BOOST,
-  // Attack items
-  ATTACK_SPIKE_PLATFORM,
-  ATTACK_SPEED_UP,
-  ATTACK_NARROW_PLATFORM,
-  ATTACK_REVERSE_CONTROLS,
-  ATTACK_TRUE_REVERSE,
-  SHIELD
-}
-
+// PowerUpType is now defined in EffectManager.ts
 export const POWER_UP_SIZE = 20;
 export const POWER_UP_SPAWN_CHANCE = 0.25; // Reduced to 25% chance per platform to prevent overcrowding
 export const INVINCIBILITY_POWER_UP_DURATION = 5000; // 5 seconds
@@ -80,21 +68,21 @@ export const HEALTH_BOOST_AMOUNT = 50; // +50% health
 export const ATTACK_ITEM_SPAWN_CHANCE = 0.4; // 40% chance to spawn an attack item in multiplayer
 export const SHIELD_SPAWN_CHANCE = 0.2; // 20% chance to spawn a shield in multiplayer
 export const ATTACK_ITEM_COLORS = {
-  [PowerUpType.ATTACK_SPIKE_PLATFORM]: '#FF5733', // Red
-  [PowerUpType.ATTACK_SPEED_UP]: '#3357FF', // Blue
-  [PowerUpType.ATTACK_NARROW_PLATFORM]: '#33FF57', // Green
-  [PowerUpType.ATTACK_REVERSE_CONTROLS]: '#FF33F5', // Purple
-  [PowerUpType.ATTACK_TRUE_REVERSE]: '#8333FF', // Indigo
-  [PowerUpType.SHIELD]: '#F5FF33' // Yellow
+  // ATTACK_SPIKE_PLATFORM: '#FF5733', // Red
+  // ATTACK_SPEED_UP: '#3357FF', // Blue
+  // ATTACK_NARROW_PLATFORM: '#33FF57', // Green
+  // ATTACK_REVERSE_CONTROLS: '#FF33F5', // Purple
+  // ATTACK_TRUE_REVERSE: '#8333FF', // Indigo
+  // SHIELD: '#F5FF33' // Yellow
 };
 
 export const ATTACK_ITEM_ICONS = {
-  [PowerUpType.ATTACK_SPIKE_PLATFORM]: '⚡', // Spike Platform
-  [PowerUpType.ATTACK_SPEED_UP]: '🏃', // Speed Up
-  [PowerUpType.ATTACK_NARROW_PLATFORM]: '↔️', // Narrow Platform
-  [PowerUpType.ATTACK_REVERSE_CONTROLS]: '🔄', // Reverse Controls
-  [PowerUpType.ATTACK_TRUE_REVERSE]: '⇄', // True Reverse
-  [PowerUpType.SHIELD]: '🛡️' // Shield
+  // ATTACK_SPIKE_PLATFORM: '⚡', // Spike Platform
+  // ATTACK_SPEED_UP: '🏃', // Speed Up
+  // ATTACK_NARROW_PLATFORM: '↔️', // Narrow Platform
+  // ATTACK_REVERSE_CONTROLS: '🔄', // Reverse Controls
+  // ATTACK_TRUE_REVERSE: '⇄', // True Reverse
+  // SHIELD: '🛡️' // Shield
 };
 
 // Multiplayer constants
