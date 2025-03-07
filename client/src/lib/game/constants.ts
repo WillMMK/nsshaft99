@@ -84,7 +84,7 @@ export const ATTACK_ITEM_ICONS = {
   'attack_narrow_platform': '↔️', // Narrow Platform
   'attack_reverse_controls': '🔄', // Reverse Controls
   'attack_true_reverse': '⇄', // True Reverse
-  'shield': '��️' // Shield
+  'shield': '🛡️' // Shield - fixed icon
 };
 
 // Multiplayer constants

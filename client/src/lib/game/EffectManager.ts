@@ -1,19 +1,6 @@
-import { AttackType } from '@/types';
+import { AttackType, PowerUpType } from '@/types';
 import { GameState } from '@/contexts/GameStateContext';
 import { playSound } from './audio';
-
-// Define PowerUpType from constants since it's missing in the types.ts file
-export enum PowerUpType {
-  INVINCIBILITY = 'invincibility',
-  SLOW_FALL = 'slow_fall',
-  HEALTH_BOOST = 'health_boost',
-  SHIELD = 'shield',
-  ATTACK_SPIKE_PLATFORM = 'attack_spike_platform',
-  ATTACK_SPEED_UP = 'attack_speed_up',
-  ATTACK_NARROW_PLATFORM = 'attack_narrow_platform',
-  ATTACK_REVERSE_CONTROLS = 'attack_reverse_controls',
-  ATTACK_TRUE_REVERSE = 'attack_true_reverse'
-}
 
 export class EffectManager {
   private updateGameState: (state: Partial<GameState>) => void;

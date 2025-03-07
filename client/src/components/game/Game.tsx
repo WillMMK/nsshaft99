@@ -68,13 +68,12 @@ const GameWithMultiplayer: React.FC = () => {
     const handleAttack = (data: { attackerId: string; attackerName: string; attackType: AttackType }) => {
       console.log('Received attack:', data);
       
-      // Apply the attack effect based on the type
+      // Update game state with attack notification
       setGameState(prev => ({
         ...prev,
         attackNotification: {
-          attackerId: data.attackerId,
-          attackerName: data.attackerName,
           attackType: data.attackType,
+          attackerName: data.attackerName,
           timestamp: Date.now()
         },
         activeEffects: {
@@ -82,40 +81,24 @@ const GameWithMultiplayer: React.FC = () => {
           spikePlatforms: data.attackType === AttackType.SPIKE_PLATFORM ? true : prev.activeEffects.spikePlatforms,
           speedUp: data.attackType === AttackType.SPEED_UP ? true : prev.activeEffects.speedUp,
           narrowPlatforms: data.attackType === AttackType.NARROW_PLATFORM ? true : prev.activeEffects.narrowPlatforms,
-          reverseControls: data.attackType === AttackType.REVERSE_CONTROLS ? true : prev.activeEffects.reverseControls
+          reverseControls: data.attackType === AttackType.REVERSE_CONTROLS ? true : prev.activeEffects.reverseControls,
+          trueReverse: data.attackType === AttackType.TRUE_REVERSE ? true : prev.activeEffects.trueReverse
         }
       }));
       
-      // Set a timeout to clear the effect automatically after 5 seconds
-      // (this will happen if player doesn't defend or fails defense)
+      // Clear attack notification after 5 seconds if not defended
       setTimeout(() => {
         setGameState(prev => {
-          // Only clear the effect if it's still active
-          // (defense might have already cleared it)
-          const attackType = data.attackType;
-          const isEffectActive = (
-            (attackType === AttackType.SPIKE_PLATFORM && prev.activeEffects.spikePlatforms) ||
-            (attackType === AttackType.SPEED_UP && prev.activeEffects.speedUp) ||
-            (attackType === AttackType.NARROW_PLATFORM && prev.activeEffects.narrowPlatforms) ||
-            (attackType === AttackType.REVERSE_CONTROLS && prev.activeEffects.reverseControls)
-          );
-          
-          if (isEffectActive) {
+          // Only clear if this is still the same attack notification
+          if (prev.attackNotification?.timestamp === data.timestamp) {
             return {
               ...prev,
-              activeEffects: {
-                ...prev.activeEffects,
-                spikePlatforms: attackType === AttackType.SPIKE_PLATFORM ? false : prev.activeEffects.spikePlatforms,
-                speedUp: attackType === AttackType.SPEED_UP ? false : prev.activeEffects.speedUp,
-                narrowPlatforms: attackType === AttackType.NARROW_PLATFORM ? false : prev.activeEffects.narrowPlatforms,
-                reverseControls: attackType === AttackType.REVERSE_CONTROLS ? false : prev.activeEffects.reverseControls
-              }
+              attackNotification: null
             };
           }
-          
-          return prev; // No change if effect already cleared
+          return prev;
         });
-      }, 5000); // Effects last for 5 seconds
+      }, 5000);
     };
     
     // Register the attack handler
@@ -141,7 +124,8 @@ const GameWithMultiplayer: React.FC = () => {
           spikePlatforms: false,
           speedUp: false,
           narrowPlatforms: false,
-          reverseControls: false
+          reverseControls: false,
+          trueReverse: false
         },
         attackNotification: null,
         score: 0,
@@ -306,7 +290,8 @@ const GameWithMultiplayer: React.FC = () => {
           spikePlatforms: false,
           speedUp: false,
           narrowPlatforms: false,
-          reverseControls: false
+          reverseControls: false,
+          trueReverse: false
         },
         attackNotification: null,
         score: 0,
@@ -339,7 +324,8 @@ const GameWithMultiplayer: React.FC = () => {
             spikePlatforms: false,
             speedUp: false,
             narrowPlatforms: false,
-            reverseControls: false
+            reverseControls: false,
+            trueReverse: false
           },
           attackNotification: null,
           score: 0,
@@ -392,7 +378,8 @@ const GameWithMultiplayer: React.FC = () => {
           spikePlatforms: false,
           speedUp: false,
           narrowPlatforms: false,
-          reverseControls: false
+          reverseControls: false,
+          trueReverse: false
         },
         attackNotification: null,
         score: 0,

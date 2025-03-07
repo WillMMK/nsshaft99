@@ -16,14 +16,27 @@ interface AttackNotification {
 }
 
 export interface GameState {
-  isRunning: boolean;
-  isPaused: boolean;
+  isPlaying: boolean;
   score: number;
   health: number;
-  activeEffects: ActiveEffects;
-  attackNotification: AttackNotification | null;
-  isMovingLeft: boolean;
-  isMovingRight: boolean;
+  activeEffects: {
+    spikePlatforms: boolean;
+    speedUp: boolean;
+    narrowPlatforms: boolean;
+    reverseControls: boolean;
+    trueReverse: boolean;
+  };
+  attackNotification: {
+    attackType: AttackType;
+    attackerName: string;
+    timestamp: number;
+  } | null;
+  lastAttackSent: {
+    type: AttackType;
+    targetId: string;
+    targetName: string;
+    timestamp: number;
+  } | null;
 }
 
 interface GameStateContextType {
@@ -33,8 +46,7 @@ interface GameStateContextType {
 }
 
 const initialGameState: GameState = {
-  isRunning: false,
-  isPaused: false,
+  isPlaying: false,
   score: 0,
   health: 100,
   activeEffects: {
@@ -45,8 +57,7 @@ const initialGameState: GameState = {
     trueReverse: false
   },
   attackNotification: null,
-  isMovingLeft: false,
-  isMovingRight: false
+  lastAttackSent: null
 };
 
 const GameStateContext = createContext<GameStateContextType | undefined>(undefined);
@@ -58,8 +69,7 @@ export const GameStateProvider: React.FC<{ children: ReactNode }> = ({ children 
     console.log('Resetting game state completely');
     // Create a fresh copy of the initial state to avoid reference issues
     setGameState({
-      isRunning: false,
-      isPaused: false,
+      isPlaying: false,
       score: 0,
       health: 100,
       activeEffects: {
@@ -70,8 +80,7 @@ export const GameStateProvider: React.FC<{ children: ReactNode }> = ({ children 
         trueReverse: false
       },
       attackNotification: null,
-      isMovingLeft: false,
-      isMovingRight: false
+      lastAttackSent: null
     });
   };
 

@@ -9,7 +9,7 @@ import {
   ATTACK_ITEM_COLORS,
   ATTACK_ITEM_ICONS
 } from './constants';
-import { PowerUpType } from './EffectManager';
+import { PowerUpType } from '@/types';
 
 // Platform types
 export enum PlatformType {
@@ -66,7 +66,12 @@ export function createPlatform(
       // In multiplayer mode, spawn all power-up types with weighted distribution
       if (rand < 0.4) {
         // Original power-ups (40% chance)
-        powerUpType = Math.floor(Math.random() * 3);
+        const originalTypes = [
+          PowerUpType.INVINCIBILITY,
+          PowerUpType.SLOW_FALL,
+          PowerUpType.HEALTH_BOOST
+        ];
+        powerUpType = originalTypes[Math.floor(Math.random() * originalTypes.length)];
       } else if (rand < 0.6) {
         // Shield (20% chance)
         powerUpType = PowerUpType.SHIELD;
@@ -83,13 +88,15 @@ export function createPlatform(
       }
     } else {
       // In single player mode, only spawn the original power-ups
-      powerUpType = Math.floor(Math.random() * 3);
+      const originalTypes = [
+        PowerUpType.INVINCIBILITY,
+        PowerUpType.SLOW_FALL,
+        PowerUpType.HEALTH_BOOST
+      ];
+      powerUpType = originalTypes[Math.floor(Math.random() * originalTypes.length)];
     }
     
     // Position the power-up directly above the platform
-    // In the game's coordinate system, the platform's y-position is the bottom of the platform
-    // So we need to subtract the platform height to get to the top of the platform
-    // Then subtract the power-up height and a small gap
     const powerUpY = y - PLATFORM_HEIGHT - POWER_UP_SIZE - 5;
     
     powerUp = {
@@ -101,7 +108,7 @@ export function createPlatform(
       active: true
     };
     
-    console.log(`Created power-up of type ${PowerUpType[powerUpType]} at position (${Math.round(x + width/2)}, ${Math.round(powerUpY)}) on platform at y=${y}`);
+    console.log(`Created power-up of type ${powerUpType} at position (${Math.round(x + width/2)}, ${Math.round(powerUpY)}) on platform at y=${y}`);
   }
   
   return {
@@ -193,6 +200,9 @@ export function drawPowerUp(ctx: CanvasRenderingContext2D, powerUp: PowerUp) {
       color = ATTACK_ITEM_COLORS['attack_true_reverse'];
       text = ATTACK_ITEM_ICONS['attack_true_reverse'];
       isAttackItem = true;
+      break;
+    default:
+      console.warn('Unknown power-up type:', powerUp.type);
       break;
   }
   

@@ -33,9 +33,9 @@ import {
 import { Platform, PlatformType, createPlatform, drawPlatform } from './platform';
 import { drawCharacter, Character } from './character';
 import { playSound, playAttackSound } from './audio';
-import { Player, AttackType } from '@/types';
+import { Player, AttackType, PowerUpType } from '@/types';
 import { GameState } from '@/contexts/GameStateContext';
-import { EffectManager, PowerUpType } from './EffectManager';
+import { EffectManager } from './EffectManager';
 
 // Define a NetworkPlayer interface for backward compatibility
 interface NetworkPlayer {
@@ -208,7 +208,7 @@ export class GameEngine {
             active: true
           };
           
-          console.log(`Added test ${PowerUpType[attackTypes[i]]} at position (${Math.round(platform.x + platform.width/2)}, ${Math.round(platform.y - PLATFORM_HEIGHT - POWER_UP_SIZE - 5)}) on platform at y=${platform.y}`);
+          console.log(`Added test power-up of type ${attackTypes[i]} at position (${Math.round(platform.x + platform.width/2)}, ${Math.round(platform.y - PLATFORM_HEIGHT - POWER_UP_SIZE - 5)}) on platform at y=${platform.y}`);
         }
       }
     }
@@ -579,7 +579,7 @@ export class GameEngine {
           active: true
         };
         
-        console.log(`Added attack item of type ${PowerUpType[randomType]} at position (${Math.round(randomPlatform.x + randomPlatform.width/2)}, ${Math.round(randomPlatform.y - PLATFORM_HEIGHT - POWER_UP_SIZE - 5)}) on platform at y=${randomPlatform.y}`);
+        console.log(`Added attack item of type ${randomType} at position (${Math.round(randomPlatform.x + randomPlatform.width/2)}, ${Math.round(randomPlatform.y - PLATFORM_HEIGHT - POWER_UP_SIZE - 5)}) on platform at y=${randomPlatform.y}`);
       }
     }
   }

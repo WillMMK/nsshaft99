@@ -9,6 +9,35 @@ function logAttack(message: string, data?: any) {
   console.log(`[ATTACK SYSTEM] ${message}`, data || '');
 }
 
+// Component to display the last attack sent notification
+const LastAttackSentNotification: React.FC = () => {
+  const { gameState } = useGameState();
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    if (gameState.lastAttackSent) {
+      setVisible(true);
+      const timer = setTimeout(() => {
+        setVisible(false);
+      }, 3000); // Show for 3 seconds
+      return () => clearTimeout(timer);
+    }
+  }, [gameState.lastAttackSent]);
+
+  if (!gameState.lastAttackSent || !visible) {
+    return null;
+  }
+
+  return (
+    <div className="fixed top-20 right-4 z-50 pointer-events-none">
+      <div className="bg-game-dark bg-opacity-90 p-2 rounded text-xs text-white animate-fade-out">
+        <div className="font-bold text-game-yellow">Attack Sent!</div>
+        <div>Target: {gameState.lastAttackSent.targetName}</div>
+      </div>
+    </div>
+  );
+};
+
 const AttackNotification: React.FC = () => {
   const { players } = useMultiplayer();
   const { gameState, setGameState } = useGameState();
@@ -259,60 +288,63 @@ const AttackNotification: React.FC = () => {
   const colorClasses = getColorClasses(attackInfo.color);
   
   return (
-    <div className="fixed top-4 right-4 z-50 pointer-events-none">
-      <div 
-        className={`
-          pixel-box 
-          max-w-[200px]
-          rounded 
-          p-3
-          ${blinkState ? colorClasses.border : 'border-white'} 
-          border-2
-          ${colorClasses.bg}
-          ${colorClasses.shadow}
-          shadow-lg
-          text-center
-          flex flex-col items-center
-          justify-center
-          transform
-          transition-all
-          pixel-corners
-          ${defended ? (defenseSuccessful ? 'scale-150 opacity-0' : 'shake-animation') : 'animate-bounce-small'}
-        `}
-        style={{ 
-          transition: 'transform 0.5s, opacity 0.5s',
-          imageRendering: 'pixelated' 
-        }}
-      >
-        <div className="text-sm text-white font-bold mb-1 pixel-text">
-          {gameState.attackNotification.attackerName}
-        </div>
-        
-        <div className="text-xl mb-1">{attackInfo.icon}</div>
-        
-        <div className={`font-bold text-xs mb-1 ${colorClasses.text} pixel-text`}>
-          {attackInfo.description}
-        </div>
-        
-        {!defenseAttempted ? (
-          <div className="text-white text-xs mb-1 pixel-text">
-            MOVE TO DEFEND!
+    <>
+      <LastAttackSentNotification />
+      <div className="fixed top-4 right-4 z-50 pointer-events-none">
+        <div 
+          className={`
+            pixel-box 
+            max-w-[200px]
+            rounded 
+            p-3
+            ${blinkState ? colorClasses.border : 'border-white'} 
+            border-2
+            ${colorClasses.bg}
+            ${colorClasses.shadow}
+            shadow-lg
+            text-center
+            flex flex-col items-center
+            justify-center
+            transform
+            transition-all
+            pixel-corners
+            ${defended ? (defenseSuccessful ? 'scale-150 opacity-0' : 'shake-animation') : 'animate-bounce-small'}
+          `}
+          style={{ 
+            transition: 'transform 0.5s, opacity 0.5s',
+            imageRendering: 'pixelated' 
+          }}
+        >
+          <div className="text-sm text-white font-bold mb-1 pixel-text">
+            {gameState.attackNotification.attackerName}
           </div>
-        ) : defended ? (
-          <div className={`text-xs mb-1 pixel-text ${defenseSuccessful ? 'text-green-400' : 'text-red-400'}`}>
-            {defenseSuccessful ? 'SUCCESS!' : 'FAILED!'}
+          
+          <div className="text-xl mb-1">{attackInfo.icon}</div>
+          
+          <div className={`font-bold text-xs mb-1 ${colorClasses.text} pixel-text`}>
+            {attackInfo.description}
           </div>
-        ) : null}
-        
-        {/* Defense chance meter */}
-        <div className="w-full bg-gray-700 h-2 rounded-full overflow-hidden">
-          <div 
-            className={`h-full ${attackInfo.color === 'red' ? 'bg-red-500' : attackInfo.color === 'blue' ? 'bg-blue-500' : attackInfo.color === 'green' ? 'bg-green-500' : attackInfo.color === 'purple' ? 'bg-purple-500' : 'bg-indigo-500'}`}
-            style={{ width: `${defenseChance}%` }}
-          ></div>
+          
+          {!defenseAttempted ? (
+            <div className="text-white text-xs mb-1 pixel-text">
+              MOVE TO DEFEND!
+            </div>
+          ) : defended ? (
+            <div className={`text-xs mb-1 pixel-text ${defenseSuccessful ? 'text-green-400' : 'text-red-400'}`}>
+              {defenseSuccessful ? 'SUCCESS!' : 'FAILED!'}
+            </div>
+          ) : null}
+          
+          {/* Defense chance meter */}
+          <div className="w-full bg-gray-700 h-2 rounded-full overflow-hidden">
+            <div 
+              className={`h-full ${attackInfo.color === 'red' ? 'bg-red-500' : attackInfo.color === 'blue' ? 'bg-blue-500' : attackInfo.color === 'green' ? 'bg-green-500' : attackInfo.color === 'purple' ? 'bg-purple-500' : 'bg-indigo-500'}`}
+              style={{ width: `${defenseChance}%` }}
+            ></div>
+          </div>
         </div>
       </div>
-    </div>
+    </>
   );
 };
 

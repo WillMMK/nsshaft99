@@ -31,4 +31,17 @@ export interface NetworkPlayer {
   score: number;
   isAlive: boolean;
   isReady: boolean;
+}
+
+// Power-up types that can be collected
+export enum PowerUpType {
+  INVINCIBILITY = 'invincibility',
+  SLOW_FALL = 'slow_fall',
+  HEALTH_BOOST = 'health_boost',
+  SHIELD = 'shield',
+  ATTACK_SPIKE_PLATFORM = 'attack_spike_platform',
+  ATTACK_SPEED_UP = 'attack_speed_up',
+  ATTACK_NARROW_PLATFORM = 'attack_narrow_platform',
+  ATTACK_REVERSE_CONTROLS = 'attack_reverse_controls',
+  ATTACK_TRUE_REVERSE = 'attack_true_reverse'
 } 
