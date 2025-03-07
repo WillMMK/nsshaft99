@@ -27,7 +27,9 @@ import {
   SLOW_FALL_POWER_UP_DURATION,
   SLOW_FALL_FACTOR,
   HEALTH_BOOST_AMOUNT,
-  PLAYER_COLORS
+  PLAYER_COLORS,
+  ATTACK_ITEM_COLORS,
+  ATTACK_ITEM_ICONS
 } from './constants';
 import { Platform, PlatformType, createPlatform, drawPlatform } from './platform';
 import { drawCharacter, Character } from './character';
@@ -142,58 +144,73 @@ export class GameEngine {
   }
 
   initializePlatforms() {
+    // Clear any existing platforms
     this.platforms = [];
     
-    // Place the start platform at 60% of canvas height for better positioning
-    const startX = this.canvas.width / 2 - 50;
-    const startY = this.canvas.height * 0.6;
-    console.log("Adding start platform at:", startX, startY);
+    // Create a starting platform for the player
+    const startY = this.canvas.height - 100;
+    const startPlatform = createPlatform(
+      this.canvas.width / 2 - 50,
+      startY,
+      100,
+      PlatformType.NORMAL,
+      this.isMultiplayer
+    );
     
-    // Create a wider platform for the starting position to make it easier
-    const startPlatform = createPlatform(startX, startY, 100, PlatformType.NORMAL);
-    
-    // Add a test power-up to the starting platform to ensure power-ups work
-    startPlatform.powerUp = {
-      type: PowerUpType.INVINCIBILITY,
-      x: startX + 50 - POWER_UP_SIZE / 2,
-      y: startY - POWER_UP_SIZE - 5,
-      width: POWER_UP_SIZE,
-      height: POWER_UP_SIZE,
-      active: true
-    };
-    
-    console.log("Added test power-up to starting platform");
-    this.platforms.push(startPlatform);
-
-    // Generate additional platforms with appropriate spacing - one per level
-    // Start from the first platform position
-    let yPos = startY;
-    
-    // Generate platforms all the way to double the canvas height,
-    // with exactly one platform per level
-    while (yPos < this.canvas.height * 2) {
-      // Move to next level with fixed distance
-      yPos += PLATFORM_VERTICAL_GAP;
-      
-      // Calculate a random horizontal position for the platform
-      // Ensure platforms aren't too close to the edges
-      const edgeMargin = MIN_PLATFORM_WIDTH * 0.5;
-      const availableWidth = this.canvas.width - (2 * edgeMargin) - MIN_PLATFORM_WIDTH;
-      const randomX = edgeMargin + (Math.random() * availableWidth);
-      
-      // Create just one platform at each level with randomized horizontal position
-      const platform = createPlatform(
-        randomX, 
-        yPos, 
-        MIN_PLATFORM_WIDTH + Math.random() * (MAX_PLATFORM_WIDTH - MIN_PLATFORM_WIDTH),
-        PlatformType.NORMAL
-      );
-      
-      // Add the platform to our collection
-      this.platforms.push(platform);
+    // Add a test attack item to the starting platform for testing
+    if (this.isMultiplayer) {
+      // Force an attack item on the starting platform
+      startPlatform.powerUp = {
+        type: PowerUpType.ATTACK_SPIKE_PLATFORM,
+        x: startPlatform.x + startPlatform.width/2 - POWER_UP_SIZE/2,
+        y: startPlatform.y - PLATFORM_HEIGHT - POWER_UP_SIZE - 5,
+        width: POWER_UP_SIZE,
+        height: POWER_UP_SIZE,
+        active: true
+      };
+      console.log(`Added test attack item at position (${Math.round(startPlatform.x + startPlatform.width/2)}, ${Math.round(startPlatform.y - PLATFORM_HEIGHT - POWER_UP_SIZE - 5)}) on starting platform`);
     }
     
-    console.log("Initialized", this.platforms.length, "platforms");
+    this.platforms.push(startPlatform);
+    
+    // Create initial platforms
+    for (let i = 0; i < 10; i++) {
+      const yPos = this.canvas.height - (i * PLATFORM_VERTICAL_GAP) - 100;
+      this.addPlatform(yPos);
+    }
+    
+    // Add test attack items to the first few platforms for testing in multiplayer mode
+    if (this.isMultiplayer) {
+      // Define all attack types we want to test
+      const attackTypes = [
+        PowerUpType.ATTACK_SPEED_UP,
+        PowerUpType.ATTACK_NARROW_PLATFORM,
+        PowerUpType.ATTACK_REVERSE_CONTROLS,
+        PowerUpType.ATTACK_TRUE_REVERSE,
+        PowerUpType.SHIELD
+      ];
+      
+      // Add each attack type to a different platform
+      for (let i = 0; i < Math.min(5, this.platforms.length - 1); i++) {
+        const platform = this.platforms[i + 1]; // Skip the starting platform
+        
+        // Only add if the platform doesn't already have a power-up
+        if (!platform.powerUp && platform.type !== PlatformType.SPIKE && platform.type !== PlatformType.COLLAPSING) {
+          platform.powerUp = {
+            type: attackTypes[i],
+            x: platform.x + platform.width/2 - POWER_UP_SIZE/2,
+            y: platform.y - PLATFORM_HEIGHT - POWER_UP_SIZE - 5,
+            width: POWER_UP_SIZE,
+            height: POWER_UP_SIZE,
+            active: true
+          };
+          
+          console.log(`Added test ${PowerUpType[attackTypes[i]]} at position (${Math.round(platform.x + platform.width/2)}, ${Math.round(platform.y - PLATFORM_HEIGHT - POWER_UP_SIZE - 5)}) on platform at y=${platform.y}`);
+        }
+      }
+    }
+    
+    console.log("Initialized", this.platforms.length, "platforms in", this.isMultiplayer ? "multiplayer" : "single player", "mode");
   }
 
   addPlatform(yPos: number, xOffset: number = 0): Platform {
@@ -218,61 +235,48 @@ export class GameEngine {
     }
     
     // Check for any platforms at exactly the same height and skip if found
-    const exactSameHeightPlatforms = this.platforms.filter(p => 
-      Math.abs(p.y - yPos) < 1
-    );
+    // Also ensure platforms aren't too close horizontally at similar heights
+    const platformHeightTolerance = 10; // How close platforms can be vertically
+    const minHorizontalSpacing = 100;   // Minimum horizontal spacing between platforms
     
-    if (exactSameHeightPlatforms.length > 0) {
-      // Shift height slightly to avoid exact same position
-      yPos += PLATFORM_HEIGHT * 1.2;
-    }
+    let foundSpace = false;
+    let attempts = 0;
+    const maxAttempts = 5;
     
-    // Check for platforms at similar heights that might overlap
-    const similarHeightPlatforms = this.platforms.filter(p => 
-      Math.abs(p.y - yPos) < PLATFORM_HEIGHT * 2
-    );
-    
-    if (similarHeightPlatforms.length > 0) {
-      // Check if our new platform would overlap with any existing platform
-      const wouldOverlap = similarHeightPlatforms.some(p => {
-        // More precise overlap detection
-        const overlapLeft = xPos <= (p.x + p.width) && xPos >= p.x;
-        const overlapRight = (xPos + width) >= p.x && (xPos + width) <= (p.x + p.width);
-        const containsLeft = xPos <= p.x && (xPos + width) >= p.x;
-        const containsRight = xPos <= (p.x + p.width) && (xPos + width) >= (p.x + p.width);
-        
-        return overlapLeft || overlapRight || containsLeft || containsRight;
-      });
+    while (!foundSpace && attempts < maxAttempts) {
+      foundSpace = true;
       
-      if (wouldOverlap) {
-        // Try multiple positions to find a non-overlapping spot
-        let attempts = 5;
-        let foundSpace = false;
-        
-        while (attempts > 0 && !foundSpace) {
-          // Try different positions across the screen width
-          xPos = Math.random() * (this.canvas.width - width);
+      for (const platform of this.platforms) {
+        // Check if platforms are at similar heights
+        if (Math.abs(platform.y - yPos) < platformHeightTolerance) {
+          // Check if they're too close horizontally
+          const platformRight = platform.x + platform.width;
+          const newPlatformRight = xPos + width;
           
-          // Check if this new position would still overlap
-          foundSpace = !similarHeightPlatforms.some(p => {
-            const overlapLeft = xPos <= (p.x + p.width) && xPos >= p.x;
-            const overlapRight = (xPos + width) >= p.x && (xPos + width) <= (p.x + p.width);
-            const containsLeft = xPos <= p.x && (xPos + width) >= p.x;
-            const containsRight = xPos <= (p.x + p.width) && (xPos + width) >= (p.x + p.width);
+          const horizontalOverlap = 
+            (xPos >= platform.x && xPos <= platformRight) || 
+            (newPlatformRight >= platform.x && newPlatformRight <= platformRight) ||
+            (xPos <= platform.x && newPlatformRight >= platformRight);
+          
+          const tooClose = 
+            Math.abs(xPos - platform.x) < minHorizontalSpacing ||
+            Math.abs(newPlatformRight - platformRight) < minHorizontalSpacing;
+          
+          if (horizontalOverlap || tooClose) {
+            foundSpace = false;
             
-            return overlapLeft || overlapRight || containsLeft || containsRight;
-          });
-          
-          attempts--;
+            // Try a different horizontal position
+            xPos = Math.random() * (this.canvas.width - width);
+            attempts++;
+            break;
+          }
         }
-        
-        // If still can't find space, shift the y position further down
-        if (!foundSpace) {
-          yPos += PLATFORM_VERTICAL_GAP * 0.4;
-        }
-        
-        // Final bounds check
-        xPos = Math.max(0, Math.min(this.canvas.width - width, xPos));
+      }
+      
+      if (!foundSpace && attempts >= maxAttempts) {
+        // If we can't find a good spot after max attempts, adjust the y position slightly
+        yPos += PLATFORM_VERTICAL_GAP * 0.2;
+        attempts = 0; // Reset attempts for the new height
       }
     }
     
@@ -284,7 +288,8 @@ export class GameEngine {
       platformType = PlatformType.NORMAL;
     }
     
-    const platform = createPlatform(xPos, yPos, width, platformType);
+    // Create the platform with the isMultiplayer flag
+    const platform = createPlatform(xPos, yPos, width, platformType, this.isMultiplayer);
     this.platforms.push(platform);
     return platform;
   }
@@ -487,15 +492,10 @@ export class GameEngine {
       while (lowestPlatform.y < viewportBottom + extraDistance) {
         const newY = lowestPlatform.y + PLATFORM_VERTICAL_GAP;
         
-        // Randomize the horizontal position with edge margins
-        const edgeMargin = MIN_PLATFORM_WIDTH * 0.5;
-        const availableWidth = this.canvas.width - (2 * edgeMargin) - MIN_PLATFORM_WIDTH;
-        const randomX = edgeMargin + (Math.random() * availableWidth);
+        // Add the new platform
+        this.addPlatform(newY);
         
-        // Create platform with optimized width calculation
-        this.addPlatform(newY, randomX - this.canvas.width/2);
-        
-        // Update our reference to the new lowest platform
+        // Find the new lowest platform for the next iteration
         const updatedLowestPlatform = this.platforms.reduce(
           (lowest, current) => current.y > lowest.y ? current : lowest,
           this.platforms[0]
@@ -512,6 +512,72 @@ export class GameEngine {
     } else {
       // If no platforms exist, create one at 80% of canvas height
       this.addPlatform(this.canvas.height * 0.8);
+    }
+    
+    // Ensure there are always some attack items near the player in multiplayer mode
+    if (this.isMultiplayer) {
+      this.ensureAttackItemsNearPlayer();
+    }
+  }
+  
+  // New method to ensure attack items are available near the player
+  private ensureAttackItemsNearPlayer() {
+    // Define the vertical range where we want to ensure items exist
+    const playerY = this.character.y;
+    const visibleRange = this.canvas.height;
+    const minY = playerY - visibleRange * 0.3; // Above player
+    const maxY = playerY + visibleRange * 0.7; // Below player
+    
+    // Get platforms in this range
+    const nearbyPlatforms = this.platforms.filter(platform => 
+      platform.y >= minY && platform.y <= maxY
+    );
+    
+    // Count how many platforms in this range have attack items
+    const platformsWithAttackItems = nearbyPlatforms.filter(platform => 
+      platform.powerUp?.active && 
+      (platform.powerUp.type === PowerUpType.ATTACK_SPIKE_PLATFORM ||
+       platform.powerUp.type === PowerUpType.ATTACK_SPEED_UP ||
+       platform.powerUp.type === PowerUpType.ATTACK_NARROW_PLATFORM ||
+       platform.powerUp.type === PowerUpType.ATTACK_REVERSE_CONTROLS ||
+       platform.powerUp.type === PowerUpType.ATTACK_TRUE_REVERSE)
+    );
+    
+    // If we don't have enough attack items near the player, add some
+    if (platformsWithAttackItems.length < 2) {
+      // Find platforms without power-ups that we can add items to
+      const emptyPlatforms = nearbyPlatforms.filter(platform => 
+        !platform.powerUp && 
+        platform.type !== PlatformType.SPIKE && 
+        platform.type !== PlatformType.COLLAPSING
+      );
+      
+      if (emptyPlatforms.length > 0) {
+        // Choose a random platform to add an attack item to
+        const randomPlatform = emptyPlatforms[Math.floor(Math.random() * emptyPlatforms.length)];
+        
+        // Choose a random attack type
+        const attackTypes = [
+          PowerUpType.ATTACK_SPIKE_PLATFORM,
+          PowerUpType.ATTACK_SPEED_UP,
+          PowerUpType.ATTACK_NARROW_PLATFORM,
+          PowerUpType.ATTACK_REVERSE_CONTROLS,
+          PowerUpType.ATTACK_TRUE_REVERSE
+        ];
+        const randomType = attackTypes[Math.floor(Math.random() * attackTypes.length)];
+        
+        // Add the attack item to the platform
+        randomPlatform.powerUp = {
+          type: randomType,
+          x: randomPlatform.x + randomPlatform.width/2 - POWER_UP_SIZE/2,
+          y: randomPlatform.y - PLATFORM_HEIGHT - POWER_UP_SIZE - 5,
+          width: POWER_UP_SIZE,
+          height: POWER_UP_SIZE,
+          active: true
+        };
+        
+        console.log(`Added attack item of type ${PowerUpType[randomType]} at position (${Math.round(randomPlatform.x + randomPlatform.width/2)}, ${Math.round(randomPlatform.y - PLATFORM_HEIGHT - POWER_UP_SIZE - 5)}) on platform at y=${randomPlatform.y}`);
+      }
     }
   }
 
@@ -557,6 +623,74 @@ export class GameEngine {
             this.health = Math.min(100, this.health + healthToAdd);
             this.onUpdateHealth(this.health);
             playSound('jump');
+            break;
+            
+          case PowerUpType.SHIELD:
+            // Add shield to player
+            this.onUpdateGameState?.({
+              hasShield: true
+            });
+            playSound('jump');
+            console.log("Shield activated!");
+            break;
+            
+          // Handle attack items
+          case PowerUpType.ATTACK_SPIKE_PLATFORM:
+          case PowerUpType.ATTACK_SPEED_UP:
+          case PowerUpType.ATTACK_NARROW_PLATFORM:
+          case PowerUpType.ATTACK_REVERSE_CONTROLS:
+          case PowerUpType.ATTACK_TRUE_REVERSE:
+            if (this.isMultiplayer) {
+              // Map PowerUpType to AttackType
+              let attackType: AttackType;
+              
+              switch (powerUp.type) {
+                case PowerUpType.ATTACK_SPIKE_PLATFORM:
+                  attackType = AttackType.SPIKE_PLATFORM;
+                  break;
+                case PowerUpType.ATTACK_SPEED_UP:
+                  attackType = AttackType.SPEED_UP;
+                  break;
+                case PowerUpType.ATTACK_NARROW_PLATFORM:
+                  attackType = AttackType.NARROW_PLATFORM;
+                  break;
+                case PowerUpType.ATTACK_REVERSE_CONTROLS:
+                  attackType = AttackType.REVERSE_CONTROLS;
+                  break;
+                case PowerUpType.ATTACK_TRUE_REVERSE:
+                  attackType = AttackType.TRUE_REVERSE;
+                  break;
+                default:
+                  console.error("Unknown attack type:", powerUp.type);
+                  return;
+              }
+              
+              // Get all other players (excluding self)
+              const playersArray = Object.keys(this.otherPlayers);
+              
+              if (playersArray.length > 0) {
+                // Pick random target
+                const randomTargetId = playersArray[Math.floor(Math.random() * playersArray.length)];
+                const targetName = this.otherPlayers[randomTargetId]?.name || "Unknown";
+                
+                console.log(`Sending ${AttackType[attackType]} attack to player ${targetName} (${randomTargetId})`);
+                
+                // Send attack
+                this.onUpdateGameState?.({
+                  sendAttack: { attackType, targetId: randomTargetId }
+                });
+                
+                // Play sound
+                playSound('attack');
+                
+                // Show visual feedback
+                this.flashScreen(ATTACK_ITEM_COLORS[powerUp.type], 0.3);
+              } else {
+                console.log("No other players to attack!");
+              }
+            } else {
+              console.log("Attack item collected in single player mode - no effect");
+            }
             break;
         }
       }
@@ -1133,25 +1267,19 @@ export class GameEngine {
 
   // Add new method for screen flash effect
   private flashScreen(color: string, opacity: number): void {
-    const overlay = document.createElement('div');
-    overlay.style.position = 'absolute';
-    overlay.style.top = '0';
-    overlay.style.left = '0';
-    overlay.style.width = '100%';
-    overlay.style.height = '100%';
-    overlay.style.backgroundColor = color;
-    overlay.style.opacity = opacity.toString();
-    overlay.style.pointerEvents = 'none';
-    overlay.style.zIndex = '1000';
-    overlay.style.transition = 'opacity 0.3s';
+    if (!this.ctx) return;
     
-    this.canvas.parentElement?.appendChild(overlay);
+    // Save current state
+    this.ctx.save();
     
-    // Remove the overlay after animation
-    setTimeout(() => {
-      overlay.style.opacity = '0';
-      setTimeout(() => overlay.remove(), 300);
-    }, 300);
+    // Set the fill color with opacity
+    this.ctx.fillStyle = color.replace(')', `, ${opacity})`).replace('rgb', 'rgba');
+    
+    // Fill the entire canvas
+    this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    
+    // Restore the previous state
+    this.ctx.restore();
   }
 
   /**

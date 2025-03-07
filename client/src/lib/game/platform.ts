@@ -4,7 +4,11 @@ import {
   SPIKE_HEIGHT,
   PowerUpType,
   POWER_UP_SIZE,
-  POWER_UP_SPAWN_CHANCE
+  POWER_UP_SPAWN_CHANCE,
+  ATTACK_ITEM_SPAWN_CHANCE,
+  SHIELD_SPAWN_CHANCE,
+  ATTACK_ITEM_COLORS,
+  ATTACK_ITEM_ICONS
 } from './constants';
 
 // Platform types
@@ -47,26 +51,57 @@ export function createPlatform(
   x: number, 
   y: number, 
   width: number, 
-  type: PlatformType
+  type: PlatformType,
+  isMultiplayer: boolean = false
 ): Platform {
   // Randomly add power-ups to platforms with POWER_UP_SPAWN_CHANCE probability
   let powerUp: PowerUp | undefined;
   
   // Don't spawn power-ups on spike or collapsing platforms
   if (type !== PlatformType.SPIKE && type !== PlatformType.COLLAPSING && Math.random() < POWER_UP_SPAWN_CHANCE) {
-    // Choose a random power-up type
-    const powerUpType = Math.floor(Math.random() * 3);
+    let powerUpType: PowerUpType;
+    const rand = Math.random();
+    
+    if (isMultiplayer) {
+      // In multiplayer mode, spawn all power-up types with weighted distribution
+      if (rand < 0.4) {
+        // Original power-ups (40% chance)
+        powerUpType = Math.floor(Math.random() * 3);
+      } else if (rand < 0.6) {
+        // Shield (20% chance)
+        powerUpType = PowerUpType.SHIELD;
+      } else {
+        // Attack items (40% chance)
+        const attackTypes = [
+          PowerUpType.ATTACK_SPIKE_PLATFORM,
+          PowerUpType.ATTACK_SPEED_UP,
+          PowerUpType.ATTACK_NARROW_PLATFORM,
+          PowerUpType.ATTACK_REVERSE_CONTROLS,
+          PowerUpType.ATTACK_TRUE_REVERSE
+        ];
+        powerUpType = attackTypes[Math.floor(Math.random() * attackTypes.length)];
+      }
+    } else {
+      // In single player mode, only spawn the original power-ups
+      powerUpType = Math.floor(Math.random() * 3);
+    }
+    
+    // Position the power-up directly above the platform
+    // In the game's coordinate system, the platform's y-position is the bottom of the platform
+    // So we need to subtract the platform height to get to the top of the platform
+    // Then subtract the power-up height and a small gap
+    const powerUpY = y - PLATFORM_HEIGHT - POWER_UP_SIZE - 5;
     
     powerUp = {
       type: powerUpType,
       x: x + width/2 - POWER_UP_SIZE/2, // center the power-up horizontally
-      y: y - POWER_UP_SIZE - 5,         // position above the platform with a small gap
+      y: powerUpY,
       width: POWER_UP_SIZE,
       height: POWER_UP_SIZE,
       active: true
     };
     
-    console.log(`Created power-up of type ${PowerUpType[powerUpType]} at position (${Math.round(x + width/2)}, ${Math.round(y - POWER_UP_SIZE)})`);
+    console.log(`Created power-up of type ${PowerUpType[powerUpType]} at position (${Math.round(x + width/2)}, ${Math.round(powerUpY)}) on platform at y=${y}`);
   }
   
   return {
@@ -109,68 +144,142 @@ export function drawPlatform(ctx: CanvasRenderingContext2D, platform: Platform) 
 
 // Draw a power-up
 export function drawPowerUp(ctx: CanvasRenderingContext2D, powerUp: PowerUp) {
-  // Position the power-up above the platform
-  const centerX = powerUp.x + powerUp.width / 2;
-  const centerY = powerUp.y - 10; // Float above platform
+  if (!powerUp.active) return;
   
-  // Draw glowing circle
-  const gradient = ctx.createRadialGradient(
-    centerX, centerY, 0,
-    centerX, centerY, powerUp.width / 2
-  );
+  // Set color based on power-up type
+  let color = '#FFFFFF';
+  let text = '';
+  let isAttackItem = false;
   
-  // Set colors based on power-up type
   switch (powerUp.type) {
     case PowerUpType.INVINCIBILITY:
-      // Golden glow for invincibility
-      gradient.addColorStop(0, 'rgba(255, 255, 0, 0.9)');
-      gradient.addColorStop(0.7, 'rgba(255, 215, 0, 0.7)');
-      gradient.addColorStop(1, 'rgba(255, 165, 0, 0)');
+      color = '#FFD700'; // Gold
+      text = '★';
       break;
     case PowerUpType.SLOW_FALL:
-      // Blue glow for slow fall
-      gradient.addColorStop(0, 'rgba(0, 191, 255, 0.9)');
-      gradient.addColorStop(0.7, 'rgba(30, 144, 255, 0.7)');
-      gradient.addColorStop(1, 'rgba(65, 105, 225, 0)');
+      color = '#87CEEB'; // Sky Blue
+      text = '☂';
       break;
     case PowerUpType.HEALTH_BOOST:
-      // Green glow for health boost
-      gradient.addColorStop(0, 'rgba(50, 205, 50, 0.9)');
-      gradient.addColorStop(0.7, 'rgba(34, 139, 34, 0.7)');
-      gradient.addColorStop(1, 'rgba(0, 100, 0, 0)');
+      color = '#FF6B6B'; // Red
+      text = '♥';
+      break;
+    case PowerUpType.SHIELD:
+      color = ATTACK_ITEM_COLORS[PowerUpType.SHIELD];
+      text = ATTACK_ITEM_ICONS[PowerUpType.SHIELD];
+      isAttackItem = true;
+      break;
+    case PowerUpType.ATTACK_SPIKE_PLATFORM:
+      color = ATTACK_ITEM_COLORS[PowerUpType.ATTACK_SPIKE_PLATFORM];
+      text = ATTACK_ITEM_ICONS[PowerUpType.ATTACK_SPIKE_PLATFORM];
+      isAttackItem = true;
+      break;
+    case PowerUpType.ATTACK_SPEED_UP:
+      color = ATTACK_ITEM_COLORS[PowerUpType.ATTACK_SPEED_UP];
+      text = ATTACK_ITEM_ICONS[PowerUpType.ATTACK_SPEED_UP];
+      isAttackItem = true;
+      break;
+    case PowerUpType.ATTACK_NARROW_PLATFORM:
+      color = ATTACK_ITEM_COLORS[PowerUpType.ATTACK_NARROW_PLATFORM];
+      text = ATTACK_ITEM_ICONS[PowerUpType.ATTACK_NARROW_PLATFORM];
+      isAttackItem = true;
+      break;
+    case PowerUpType.ATTACK_REVERSE_CONTROLS:
+      color = ATTACK_ITEM_COLORS[PowerUpType.ATTACK_REVERSE_CONTROLS];
+      text = ATTACK_ITEM_ICONS[PowerUpType.ATTACK_REVERSE_CONTROLS];
+      isAttackItem = true;
+      break;
+    case PowerUpType.ATTACK_TRUE_REVERSE:
+      color = ATTACK_ITEM_COLORS[PowerUpType.ATTACK_TRUE_REVERSE];
+      text = ATTACK_ITEM_ICONS[PowerUpType.ATTACK_TRUE_REVERSE];
+      isAttackItem = true;
       break;
   }
   
-  // Draw the power-up with pulsing animation
+  // Draw the power-up with a pulsing animation to make it more visible
   const time = Date.now() * 0.003;
-  const pulseFactor = 0.8 + Math.sin(time) * 0.2;
-  const radius = powerUp.width / 2 * pulseFactor;
+  const pulseFactor = 0.9 + Math.sin(time) * 0.1; // Subtle pulsing
+  
+  // Make attack items slightly larger for better visibility and easier collection
+  const sizeMultiplier = isAttackItem ? 1.2 : 1.0;
+  const radius = (powerUp.width / 2) * pulseFactor * sizeMultiplier;
+  
+  // Draw the power-up circle
+  ctx.beginPath();
+  ctx.arc(
+    powerUp.x + powerUp.width / 2,
+    powerUp.y + powerUp.height / 2,
+    radius,
+    0,
+    Math.PI * 2
+  );
+  ctx.fillStyle = color;
+  ctx.fill();
+  ctx.strokeStyle = '#000000';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  
+  // Draw the power-up icon/text
+  ctx.fillStyle = '#000000';
+  ctx.font = isAttackItem ? 'bold 16px Arial' : '14px Arial';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(
+    text,
+    powerUp.x + powerUp.width / 2,
+    powerUp.y + powerUp.height / 2
+  );
+  
+  // Draw a subtle glow effect for better visibility
+  const glowRadius = radius * 1.3;
+  const gradient = ctx.createRadialGradient(
+    powerUp.x + powerUp.width / 2,
+    powerUp.y + powerUp.height / 2,
+    radius,
+    powerUp.x + powerUp.width / 2,
+    powerUp.y + powerUp.height / 2,
+    glowRadius
+  );
+  
+  // Make attack items glow more intensely
+  if (isAttackItem) {
+    gradient.addColorStop(0, 'rgba(255, 255, 255, 0)');
+    gradient.addColorStop(0.7, `rgba(${hexToRgb(color)}, 0.3)`);
+    gradient.addColorStop(1, `rgba(${hexToRgb(color)}, 0.5)`);
+  } else {
+    gradient.addColorStop(0, 'rgba(255, 255, 255, 0)');
+    gradient.addColorStop(1, 'rgba(255, 255, 255, 0.3)');
+  }
   
   ctx.beginPath();
-  ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+  ctx.arc(
+    powerUp.x + powerUp.width / 2,
+    powerUp.y + powerUp.height / 2,
+    glowRadius,
+    0,
+    Math.PI * 2
+  );
   ctx.fillStyle = gradient;
   ctx.fill();
   
-  // Draw icon inside based on type
-  ctx.fillStyle = 'white';
-  ctx.font = '14px Arial';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  
-  let icon = '';
-  switch (powerUp.type) {
-    case PowerUpType.INVINCIBILITY:
-      icon = '★'; // Star for invincibility
-      break;
-    case PowerUpType.SLOW_FALL:
-      icon = '↓'; // Down arrow for slow fall
-      break;
-    case PowerUpType.HEALTH_BOOST:
-      icon = '+'; // Plus for health boost
-      break;
+  // If it's an attack item, expand the hitbox for easier collection
+  if (isAttackItem) {
+    powerUp.width = POWER_UP_SIZE * 1.2;
+    powerUp.height = POWER_UP_SIZE * 1.2;
   }
+}
+
+// Helper function to convert hex color to RGB
+function hexToRgb(hex: string): string {
+  // Remove the # if present
+  hex = hex.replace('#', '');
   
-  ctx.fillText(icon, centerX, centerY);
+  // Parse the hex values
+  const r = parseInt(hex.substring(0, 2), 16);
+  const g = parseInt(hex.substring(2, 4), 16);
+  const b = parseInt(hex.substring(4, 6), 16);
+  
+  return `${r}, ${g}, ${b}`;
 }
 
 // Draw a normal platform
