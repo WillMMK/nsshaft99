@@ -114,3 +114,4 @@ export const ATTACK_COLORS = {
   NARROW_PLATFORM: '#33FF57', // Green
   REVERSE_CONTROLS: '#FF33F5' // Pink
 };
+import { PowerUpType } from './EffectManager';

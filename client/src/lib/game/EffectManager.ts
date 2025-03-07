@@ -1,5 +1,7 @@
 import { AttackType } from '@/types';
-// Define PowerUpType from constants since it's missing in the types.ts file
+import { GameState } from '@/contexts/GameStateContext';
+
+// Define PowerUpType enum properly
 export enum PowerUpType {
   INVINCIBILITY = 'invincibility',
   SLOW_FALL = 'slow_fall',
