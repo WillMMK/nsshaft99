@@ -17,38 +17,38 @@ const AttackNotification: React.FC = () => {
   const [defenseSuccessful, setDefenseSuccessful] = useState<boolean>(false);
   const [blinkState, setBlinkState] = useState<boolean>(false);
   const [defenseAttempted, setDefenseAttempted] = useState<boolean>(false);
-
+  
   // Blinking effect for 8-bit style
   useEffect(() => {
     if (gameState.attackNotification) {
       const blinkInterval = setInterval(() => {
         setBlinkState(prev => !prev);
       }, 300); // Fast blink rate for urgent feel
-
+      
       return () => clearInterval(blinkInterval);
     }
   }, [gameState.attackNotification]);
-
+  
   // Play attack sound when notification appears
   useEffect(() => {
     if (gameState.attackNotification && !defended) {
       // Play attack sound
       playAttackSound(gameState.attackNotification.attackType);
-
+      
       // Vibrate device if supported
       if (navigator.vibrate) {
         navigator.vibrate([100, 50, 100]); // Pattern: vibrate, pause, vibrate
       }
     }
   }, [gameState.attackNotification, defended]);
-
+  
   // Automatic defense system based on player movement
   useEffect(() => {
     if (gameState.attackNotification && !defended && !defenseAttempted) {
       // Initialize defense
       setDefenseChance(100);
       setDefenseAttempted(false);
-
+      
       // Decrease defense chance over time (slower than before)
       const interval = setInterval(() => {
         setDefenseChance(prev => {
@@ -56,25 +56,25 @@ const AttackNotification: React.FC = () => {
           return newChance < 0 ? 0 : newChance;
         });
       }, 200);
-
+      
       // Automatic defense will be triggered after 2.5 seconds
       const defenseTimer = setTimeout(() => {
         attemptDefense();
       }, 2500);
-
+      
       // Auto-hide after 5 seconds if not defended
       const hideTimer = setTimeout(() => {
         if (!defended) {
           setDefended(true);
           setDefenseSuccessful(false);
-
+          
           // Ensure attack effects are cleared after their duration
           setTimeout(() => {
             clearAttackEffects();
           }, 5000);
         }
       }, 5000);
-
+      
       return () => {
         clearInterval(interval);
         clearTimeout(defenseTimer);
@@ -82,34 +82,34 @@ const AttackNotification: React.FC = () => {
       };
     }
   }, [gameState.attackNotification, defended, defenseAttempted]);
-
+  
   // Check if player is moving based on gameState
   const isPlayerMoving = () => {
     // If we have movement data from gameState, use it
     return gameState.isMovingLeft || gameState.isMovingRight;
   };
-
+  
   // Attempt defense based on player's movement and current defense chance
   const attemptDefense = () => {
     if (defended || defenseAttempted) return;
-
+    
     setDefenseAttempted(true);
-
+    
     // If player is currently moving, they get a 50% boost to defense chance
     const movementBonus = isPlayerMoving() ? 50 : 0;
     const finalDefenseChance = Math.min(100, defenseChance + movementBonus);
-
+    
     // Determine if defense is successful
     const isSuccessful = Math.random() * 100 <= finalDefenseChance;
     setDefenseSuccessful(isSuccessful);
-
+    
     // Play defense sound with success state
     playAttackSound('', true, isSuccessful);
-
+    
     if (isSuccessful) {
       // Clear the attack effect
       clearAttackEffects();
-
+      
       // Vibrate success pattern
       if (navigator.vibrate) {
         navigator.vibrate([50, 30, 50, 30, 50]); // Success pattern
@@ -117,12 +117,12 @@ const AttackNotification: React.FC = () => {
     } else {
       // Defense failed - show feedback
       setDefended(true);
-
+      
       // Vibrate failure pattern
       if (navigator.vibrate) {
         navigator.vibrate([200, 100, 200]); // Stronger vibration for failure
       }
-
+      
       setTimeout(() => {
         setGameState(prev => ({
           ...prev,
@@ -131,11 +131,11 @@ const AttackNotification: React.FC = () => {
       }, 1000);
     }
   };
-
+  
   // Clear attack effects
   const clearAttackEffects = () => {
     if (!gameState.attackNotification) return;
-
+    
     const attackType = gameState.attackNotification.attackType;
     setGameState(prev => ({
       ...prev,
@@ -149,21 +149,21 @@ const AttackNotification: React.FC = () => {
       },
       attackNotification: null
     }));
-
+    
     setDefended(true);
   };
-
+  
   // Reset state when attack notification changes
   useEffect(() => {
     setDefended(false);
     setDefenseSuccessful(false);
     setDefenseAttempted(false);
   }, [gameState.attackNotification]);
-
+  
   if (!gameState.attackNotification) {
     return null;
   }
-
+  
   // Get attack description and color
   const getAttackInfo = (type: AttackType): { description: string; color: string; icon: string; } => {
     switch (type) {
@@ -205,9 +205,9 @@ const AttackNotification: React.FC = () => {
         };
     }
   };
-
+  
   const attackInfo = getAttackInfo(gameState.attackNotification.attackType);
-
+  
   // Get color classes based on attack type
   const getColorClasses = (color: string) => {
     switch (color) {
@@ -255,9 +255,9 @@ const AttackNotification: React.FC = () => {
         };
     }
   };
-
+  
   const colorClasses = getColorClasses(attackInfo.color);
-
+  
   return (
     <div className="fixed top-4 right-4 z-50 pointer-events-none">
       <div 
@@ -287,13 +287,13 @@ const AttackNotification: React.FC = () => {
         <div className="text-sm text-white font-bold mb-1 pixel-text">
           {gameState.attackNotification.attackerName}
         </div>
-
+        
         <div className="text-xl mb-1">{attackInfo.icon}</div>
-
+        
         <div className={`font-bold text-xs mb-1 ${colorClasses.text} pixel-text`}>
           {attackInfo.description}
         </div>
-
+        
         {!defenseAttempted ? (
           <div className="text-white text-xs mb-1 pixel-text">
             MOVE TO DEFEND!
@@ -303,7 +303,7 @@ const AttackNotification: React.FC = () => {
             {defenseSuccessful ? 'SUCCESS!' : 'FAILED!'}
           </div>
         ) : null}
-
+        
         {/* Defense chance meter */}
         <div className="w-full bg-gray-700 h-2 rounded-full overflow-hidden">
           <div 
@@ -316,4 +316,4 @@ const AttackNotification: React.FC = () => {
   );
 };
 
-export default AttackNotification;
+export default AttackNotification; 
