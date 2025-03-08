@@ -13,6 +13,7 @@ function logAttack(message: string, data?: any) {
 export const LastAttackSentNotification: React.FC = () => {
   const { gameState } = useGameState();
   const [visible, setVisible] = useState(false);
+  const [blinkState, setBlinkState] = useState(false);
 
   useEffect(() => {
     if (gameState.lastAttackSent) {
@@ -25,16 +26,149 @@ export const LastAttackSentNotification: React.FC = () => {
     }
   }, [gameState.lastAttackSent]);
 
+  // Add blinking effect to match received notification
+  useEffect(() => {
+    if (visible) {
+      const blinkInterval = setInterval(() => {
+        setBlinkState(prev => !prev);
+      }, 300);
+      return () => clearInterval(blinkInterval);
+    }
+  }, [visible]);
+
   if (!gameState.lastAttackSent || !visible) {
     return null;
   }
 
+  // Get attack info using the same helper function
+  const getAttackInfo = (type: AttackType): { description: string; color: string; icon: string; } => {
+    switch (type) {
+      case AttackType.SPIKE_PLATFORM:
+        return { 
+          description: 'SPIKE PLATFORM', 
+          color: 'red', 
+          icon: '⚡'
+        };
+      case AttackType.SPEED_UP:
+        return { 
+          description: 'SPEED UP', 
+          color: 'blue', 
+          icon: '🏃'
+        };
+      case AttackType.NARROW_PLATFORM:
+        return { 
+          description: 'NARROW PLATFORM', 
+          color: 'green', 
+          icon: '↔️'
+        };
+      case AttackType.REVERSE_CONTROLS:
+        return { 
+          description: 'FLIP CONTROLS', 
+          color: 'purple', 
+          icon: '🔄'
+        };
+      case AttackType.TRUE_REVERSE:
+        return { 
+          description: 'REVERSE CONTROLS', 
+          color: 'indigo', 
+          icon: '⇄'
+        };
+      default:
+        return { 
+          description: 'UNKNOWN ATTACK', 
+          color: 'gray', 
+          icon: '❓'
+        };
+    }
+  };
+
+  const attackInfo = getAttackInfo(gameState.lastAttackSent.type);
+
+  // Get color classes using the same helper function
+  const getColorClasses = (color: string) => {
+    switch (color) {
+      case 'red': 
+        return {
+          border: 'border-red-500',
+          bg: 'bg-red-900',
+          text: 'text-red-400',
+          shadow: 'shadow-red-500/70',
+        };
+      case 'blue': 
+        return {
+          border: 'border-blue-500',
+          bg: 'bg-blue-900',
+          text: 'text-blue-400',
+          shadow: 'shadow-blue-500/70',
+        };
+      case 'green': 
+        return {
+          border: 'border-green-500',
+          bg: 'bg-green-900',
+          text: 'text-green-400',
+          shadow: 'shadow-green-500/70',
+        };
+      case 'purple': 
+        return {
+          border: 'border-purple-500',
+          bg: 'bg-purple-900',
+          text: 'text-purple-400',
+          shadow: 'shadow-purple-500/70',
+        };
+      case 'indigo': 
+        return {
+          border: 'border-indigo-500',
+          bg: 'bg-indigo-900',
+          text: 'text-indigo-400',
+          shadow: 'shadow-indigo-500/70',
+        };
+      default:
+        return {
+          border: 'border-gray-500',
+          bg: 'bg-gray-900',
+          text: 'text-gray-400',
+          shadow: 'shadow-gray-500/70',
+        };
+    }
+  };
+
+  const colorClasses = getColorClasses(attackInfo.color);
+
   return (
-    <div className="fixed top-20 right-4 z-50">
-      <div className="bg-game-blue text-white p-3 rounded shadow-lg animate-bounce-small border-2 border-white">
-        <div className="font-bold text-lg mb-1">Attack Sent!</div>
-        <div className="text-sm">
-          Type: {gameState.lastAttackSent.type}<br/>
+    <div className="fixed top-4 left-4 z-50">
+      <div 
+        className={`
+          pixel-box 
+          max-w-[200px]
+          rounded 
+          p-3
+          ${blinkState ? colorClasses.border : 'border-white'} 
+          border-2
+          ${colorClasses.bg}
+          ${colorClasses.shadow}
+          shadow-lg
+          text-center
+          flex flex-col items-center
+          justify-center
+          transform
+          transition-all
+          pixel-corners
+          animate-bounce-small
+        `}
+        style={{ 
+          transition: 'transform 0.5s, opacity 0.5s',
+          imageRendering: 'pixelated' 
+        }}
+      >
+        <div className="font-bold text-lg mb-1 text-white pixel-text">Attack Sent!</div>
+        
+        <div className="text-xl mb-1">{attackInfo.icon}</div>
+        
+        <div className={`font-bold text-xs mb-1 ${colorClasses.text} pixel-text`}>
+          {attackInfo.description}
+        </div>
+        
+        <div className="text-sm text-white pixel-text">
           Target: {gameState.lastAttackSent.targetName}
         </div>
       </div>
