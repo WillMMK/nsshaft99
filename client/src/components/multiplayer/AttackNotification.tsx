@@ -179,7 +179,8 @@ export const LastAttackSentNotification: React.FC = () => {
 const AttackNotification: React.FC = () => {
   const { players } = useMultiplayer();
   const { gameState, setGameState } = useGameState();
-  const [defenseChance, setDefenseChance] = useState<number>(100); // 100% chance initially
+  const [timeLeft, setTimeLeft] = useState<number>(3000); // 3000ms = 3 seconds total duration
+  const [defenseChance, setDefenseChance] = useState<number>(100);
   const [defended, setDefended] = useState<boolean>(false);
   const [defenseSuccessful, setDefenseSuccessful] = useState<boolean>(false);
   const [blinkState, setBlinkState] = useState<boolean>(false);
@@ -331,6 +332,40 @@ const AttackNotification: React.FC = () => {
     }
   }, [gameState.attackNotification]);
   
+  // Update duration timer
+  useEffect(() => {
+    if (gameState.attackNotification && !defended) {
+      // Start at 3 seconds (3000ms)
+      setTimeLeft(3000);
+      
+      // Update every 100ms for smooth countdown
+      const interval = setInterval(() => {
+        setTimeLeft(prev => {
+          const newTime = prev - 100;
+          return newTime < 0 ? 0 : newTime;
+        });
+      }, 100);
+
+      // Auto-hide after 3 seconds if not defended
+      const hideTimer = setTimeout(() => {
+        if (!defended) {
+          setDefended(true);
+          setDefenseSuccessful(false);
+          
+          // Ensure attack effects are cleared after their duration
+          setTimeout(() => {
+            clearAttackEffects();
+          }, 3000);
+        }
+      }, 3000);
+      
+      return () => {
+        clearInterval(interval);
+        clearTimeout(hideTimer);
+      };
+    }
+  }, [gameState.attackNotification, defended]);
+  
   if (!gameState.attackNotification) {
     return null;
   }
@@ -429,6 +464,12 @@ const AttackNotification: React.FC = () => {
   
   const colorClasses = getColorClasses(attackInfo.color);
   
+  // Format time remaining
+  const formatTimeLeft = (ms: number): string => {
+    const seconds = (ms / 1000).toFixed(1);
+    return `${seconds}s`;
+  };
+
   return (
     <div className="fixed top-4 right-4 z-50 pointer-events-none">
       <div 
@@ -467,19 +508,19 @@ const AttackNotification: React.FC = () => {
         
         {!defenseAttempted ? (
           <div className="text-white text-xs mb-1 pixel-text">
-            MOVE TO DEFEND!
+            Duration: {formatTimeLeft(timeLeft)}
           </div>
         ) : defended ? (
           <div className={`text-xs mb-1 pixel-text ${defenseSuccessful ? 'text-green-400' : 'text-red-400'}`}>
-            {defenseSuccessful ? 'SUCCESS!' : 'FAILED!'}
+            {defenseSuccessful ? 'DEFENDED!' : 'FAILED!'}
           </div>
         ) : null}
         
-        {/* Defense chance meter */}
+        {/* Duration progress bar */}
         <div className="w-full bg-gray-700 h-2 rounded-full overflow-hidden">
           <div 
             className={`h-full ${attackInfo.color === 'red' ? 'bg-red-500' : attackInfo.color === 'blue' ? 'bg-blue-500' : attackInfo.color === 'green' ? 'bg-green-500' : attackInfo.color === 'purple' ? 'bg-purple-500' : 'bg-indigo-500'}`}
-            style={{ width: `${defenseChance}%` }}
+            style={{ width: `${(timeLeft / 3000) * 100}%` }}
           ></div>
         </div>
       </div>
