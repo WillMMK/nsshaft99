@@ -63,7 +63,12 @@ const GameWithMultiplayer: React.FC = () => {
 
   // Handle multiplayer attacks
   useEffect(() => {
-    if (!isMultiplayer || !gameState.isRunning || showGameOver || showLobby) return;
+    // Don't register handler if:
+    // - Not in multiplayer mode
+    // - Game is not running
+    // - Game is over
+    // - In lobby
+    if (!isMultiplayer || !gameState.isRunning || showGameOver || showLobby || gameState.isGameOver) return;
 
     const handleAttackSent = (data: { attackerId: string; attackerName: string; targetId: string; targetName: string; attackType: AttackType }) => {
       // Only update if we're the attacker
@@ -85,8 +90,14 @@ const GameWithMultiplayer: React.FC = () => {
 
     return () => {
       unsubscribeAttackSent();
+      // Clean up any pending attack notifications
+      setGameState(prev => ({
+        ...prev,
+        lastAttackSent: null,
+        attackNotification: null
+      }));
     };
-  }, [isMultiplayer, gameState.isRunning, showGameOver, showLobby, playerId, setGameState, networkManager]);
+  }, [isMultiplayer, gameState.isRunning, showGameOver, showLobby, playerId, setGameState, networkManager, gameState.isGameOver]);
 
   // Handle multiplayer attacks
   useEffect(() => {
@@ -189,7 +200,9 @@ const GameWithMultiplayer: React.FC = () => {
       setGameState(prev => ({
         ...prev,
         isRunning: false,
+        isGameOver: true,
         attackNotification: null,
+        lastAttackSent: null,
         activeEffects: {
           spikePlatforms: false,
           speedUp: false,
@@ -325,6 +338,7 @@ const GameWithMultiplayer: React.FC = () => {
         ...prev,
         isRunning: false,
         isPaused: false,
+        isGameOver: false,
         activeEffects: {
           spikePlatforms: false,
           speedUp: false,
@@ -333,6 +347,7 @@ const GameWithMultiplayer: React.FC = () => {
           trueReverse: false
         },
         attackNotification: null,
+        lastAttackSent: null,
         score: 0,
         health: 100
       }));
@@ -413,6 +428,7 @@ const GameWithMultiplayer: React.FC = () => {
         ...prev,
         isRunning: false,
         isPaused: false,
+        isGameOver: false,
         activeEffects: {
           spikePlatforms: false,
           speedUp: false,
@@ -421,6 +437,7 @@ const GameWithMultiplayer: React.FC = () => {
           trueReverse: false
         },
         attackNotification: null,
+        lastAttackSent: null,
         score: 0,
         health: 100
       }));
@@ -437,6 +454,7 @@ const GameWithMultiplayer: React.FC = () => {
       setGameState(prev => ({
         ...prev,
         isGameOver: true,
+        isRunning: false,
         attackNotification: null,
         lastAttackSent: null,
         activeEffects: {
@@ -447,6 +465,7 @@ const GameWithMultiplayer: React.FC = () => {
           trueReverse: false
         }
       }));
+      setShowGameOver(true);
     } else {
       setGameState(prev => ({
         ...prev,

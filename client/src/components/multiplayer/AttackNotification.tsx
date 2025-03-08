@@ -16,27 +16,29 @@ export const LastAttackSentNotification: React.FC = () => {
   const [blinkState, setBlinkState] = useState(false);
 
   useEffect(() => {
-    if (gameState.lastAttackSent) {
+    if (gameState.lastAttackSent && !gameState.isGameOver) {
       console.log('Last attack sent notification received:', gameState.lastAttackSent);
       setVisible(true);
       const timer = setTimeout(() => {
         setVisible(false);
       }, 3000); // Show for 3 seconds
       return () => clearTimeout(timer);
+    } else {
+      setVisible(false);
     }
-  }, [gameState.lastAttackSent]);
+  }, [gameState.lastAttackSent, gameState.isGameOver]);
 
   // Add blinking effect to match received notification
   useEffect(() => {
-    if (visible) {
+    if (visible && !gameState.isGameOver) {
       const blinkInterval = setInterval(() => {
         setBlinkState(prev => !prev);
       }, 300);
       return () => clearInterval(blinkInterval);
     }
-  }, [visible]);
+  }, [visible, gameState.isGameOver]);
 
-  if (!gameState.lastAttackSent || !visible) {
+  if (!gameState.lastAttackSent || !visible || gameState.isGameOver) {
     return null;
   }
 
@@ -186,22 +188,20 @@ const AttackNotification: React.FC = () => {
   const [blinkState, setBlinkState] = useState<boolean>(false);
   const [defenseAttempted, setDefenseAttempted] = useState<boolean>(false);
   
-  // Blinking effect for 8-bit style
+  // Clear all effects and timers when game is over
   useEffect(() => {
-    if (gameState.attackNotification) {
-      const blinkInterval = setInterval(() => {
-        setBlinkState(prev => !prev);
-      }, 300); // Fast blink rate for urgent feel
-      
-      return () => {
-        clearInterval(blinkInterval);
-      };
+    if (gameState.isGameOver) {
+      setDefended(true);
+      setDefenseSuccessful(false);
+      setDefenseAttempted(true);
+      setTimeLeft(0);
+      clearAttackEffects();
     }
-  }, [gameState.attackNotification]);
+  }, [gameState.isGameOver]);
   
   // Play attack sound when notification appears
   useEffect(() => {
-    if (gameState.attackNotification && !defended) {
+    if (gameState.attackNotification && !defended && !gameState.isGameOver) {
       // Play attack sound
       playAttackSound(gameState.attackNotification.attackType);
       
@@ -210,11 +210,11 @@ const AttackNotification: React.FC = () => {
         navigator.vibrate([100, 50, 100]); // Pattern: vibrate, pause, vibrate
       }
     }
-  }, [gameState.attackNotification, defended]);
+  }, [gameState.attackNotification, defended, gameState.isGameOver]);
   
   // Automatic defense system based on player movement
   useEffect(() => {
-    if (gameState.attackNotification && !defended && !defenseAttempted) {
+    if (gameState.attackNotification && !defended && !defenseAttempted && !gameState.isGameOver) {
       // Initialize defense
       setDefenseChance(100);
       setDefenseAttempted(false);
@@ -232,7 +232,7 @@ const AttackNotification: React.FC = () => {
         attemptDefense();
       }, 2500);
       
-      // Auto-hide after 5 seconds if not defended
+      // Auto-hide after 3 seconds if not defended
       const hideTimer = setTimeout(() => {
         if (!defended) {
           setDefended(true);
@@ -241,9 +241,9 @@ const AttackNotification: React.FC = () => {
           // Ensure attack effects are cleared after their duration
           setTimeout(() => {
             clearAttackEffects();
-          }, 5000);
+          }, 3000);
         }
-      }, 5000);
+      }, 3000);
       
       return () => {
         clearInterval(interval);
@@ -251,7 +251,7 @@ const AttackNotification: React.FC = () => {
         clearTimeout(hideTimer);
       };
     }
-  }, [gameState.attackNotification, defended, defenseAttempted]);
+  }, [gameState.attackNotification, defended, defenseAttempted, gameState.isGameOver]);
   
   // Check if player is moving based on gameState
   const isPlayerMoving = () => {
@@ -366,7 +366,7 @@ const AttackNotification: React.FC = () => {
     }
   }, [gameState.attackNotification, defended]);
   
-  if (!gameState.attackNotification) {
+  if (!gameState.attackNotification || gameState.isGameOver) {
     return null;
   }
   
