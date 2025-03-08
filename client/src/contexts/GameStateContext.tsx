@@ -17,6 +17,7 @@ interface AttackNotification {
 
 export interface GameState {
   isPlaying: boolean;
+  isGameOver: boolean;
   score: number;
   health: number;
   activeEffects: {
@@ -47,6 +48,7 @@ interface GameStateContextType {
 
 const initialGameState: GameState = {
   isPlaying: false,
+  isGameOver: false,
   score: 0,
   health: 100,
   activeEffects: {
@@ -70,6 +72,7 @@ export const GameStateProvider: React.FC<{ children: ReactNode }> = ({ children 
     // Create a fresh copy of the initial state to avoid reference issues
     setGameState({
       isPlaying: false,
+      isGameOver: false,
       score: 0,
       health: 100,
       activeEffects: {

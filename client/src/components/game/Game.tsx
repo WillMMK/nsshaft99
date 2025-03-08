@@ -434,10 +434,33 @@ const GameWithMultiplayer: React.FC = () => {
       // Report death to server so it can determine if game is over
       console.log('Reporting player death to server');
       reportDeath();
+      setGameState(prev => ({
+        ...prev,
+        isGameOver: true,
+        attackNotification: null,
+        lastAttackSent: null,
+        activeEffects: {
+          spikePlatforms: false,
+          speedUp: false,
+          narrowPlatforms: false,
+          reverseControls: false,
+          trueReverse: false
+        }
+      }));
     } else {
       setGameState(prev => ({
         ...prev,
-        isRunning: false
+        isRunning: false,
+        isGameOver: true,
+        attackNotification: null,
+        lastAttackSent: null,
+        activeEffects: {
+          spikePlatforms: false,
+          speedUp: false,
+          narrowPlatforms: false,
+          reverseControls: false,
+          trueReverse: false
+        }
       }));
       setShowGameOver(true);
     }

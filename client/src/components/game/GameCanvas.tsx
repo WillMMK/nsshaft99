@@ -212,8 +212,8 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ onJoinMultiplayer }) => {
         className="absolute top-0 left-0 w-full h-full"
       />
       
-      {/* Attack notifications - only show when game is running */}
-      {isMultiplayer && isRunning && !isPaused && (
+      {/* Attack notifications - only show when game is running and not in game over */}
+      {isMultiplayer && isRunning && !isPaused && !gameState.isGameOver && (
         <>
           <AttackNotification />
           <LastAttackSentNotification />
