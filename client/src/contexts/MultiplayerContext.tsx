@@ -15,6 +15,7 @@ interface MultiplayerContextType {
   gameStartTime: number | null;
   countdownSeconds: number | null;
   playerColors: Record<string, string>;
+  networkManager: NetworkManager;
   joinGame: (name: string, gameId?: string) => Promise<void>;
   leaveGame: () => void;
   updateScore: (score: number) => void;
@@ -285,6 +286,7 @@ export const MultiplayerProvider: React.FC<{ children: ReactNode }> = ({ childre
         gameStartTime,
         countdownSeconds,
         playerColors,
+        networkManager,
         joinGame,
         leaveGame,
         updateScore,

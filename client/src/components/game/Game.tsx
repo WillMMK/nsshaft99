@@ -12,7 +12,7 @@ import { MultiplayerProvider, useMultiplayer } from '@/contexts/MultiplayerConte
 
 // Create a wrapper component that uses the useMultiplayer hook
 const GameWithMultiplayer: React.FC = () => {
-  const { isMultiplayer, setIsMultiplayer, onReceiveAttack, onGameStarted, onGameOver, leaveGame, reportDeath } = useMultiplayer();
+  const { isMultiplayer, setIsMultiplayer, onReceiveAttack, onGameStarted, onGameOver, leaveGame, reportDeath, playerId, networkManager } = useMultiplayer();
   const { gameState, setGameState, resetGame } = useGameState();
   const { currentUser, userProfile, refreshUserProfile } = useAuth();
   const [showLobby, setShowLobby] = useState<boolean>(false);
@@ -60,6 +60,33 @@ const GameWithMultiplayer: React.FC = () => {
       window.removeEventListener('keyup', handleKeyUp);
     };
   }, [setGameState]);
+
+  // Handle multiplayer attacks
+  useEffect(() => {
+    if (!isMultiplayer || !gameState.isRunning || showGameOver || showLobby) return;
+
+    const handleAttackSent = (data: { attackerId: string; attackerName: string; targetId: string; targetName: string; attackType: AttackType }) => {
+      // Only update if we're the attacker
+      if (data.attackerId === playerId) {
+        setGameState(prev => ({
+          ...prev,
+          lastAttackSent: {
+            type: data.attackType,
+            targetId: data.targetId,
+            targetName: data.targetName,
+            timestamp: Date.now()
+          }
+        }));
+      }
+    };
+
+    // Register the attack sent handler
+    const unsubscribeAttackSent = networkManager.onAttackSent(handleAttackSent);
+
+    return () => {
+      unsubscribeAttackSent();
+    };
+  }, [isMultiplayer, gameState.isRunning, showGameOver, showLobby, playerId, setGameState, networkManager]);
 
   // Handle multiplayer attacks
   useEffect(() => {

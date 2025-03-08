@@ -5,7 +5,7 @@ import useGameLoop from '@/hooks/useGameLoop';
 import { useMultiplayer } from '@/contexts/MultiplayerContext';
 import { useGameState } from '@/contexts/GameStateContext';
 import PlayerList from '@/components/multiplayer/PlayerList';
-import AttackNotification from '@/components/multiplayer/AttackNotification';
+import AttackNotification, { LastAttackSentNotification } from '@/components/multiplayer/AttackNotification';
 
 interface GameCanvasProps {
   onJoinMultiplayer: () => void;
@@ -212,8 +212,13 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ onJoinMultiplayer }) => {
         className="absolute top-0 left-0 w-full h-full"
       />
       
-      {/* Attack notification - only show when game is running */}
-      {isMultiplayer && isRunning && !isPaused && <AttackNotification />}
+      {/* Attack notifications - only show when game is running */}
+      {isMultiplayer && isRunning && !isPaused && (
+        <>
+          <AttackNotification />
+          <LastAttackSentNotification />
+        </>
+      )}
       
       <div className="absolute top-0 left-0 w-full p-2 mt-12">
         <HealthBar health={health} />

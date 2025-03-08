@@ -784,27 +784,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.error('Error handling player death:', error);
       }
     });
-
-    // Handle countdown updates
-    if (gameCountdowns[gameId].secondsLeft === 30) {
-      // If we have only 1 player, add an AI player
-      if (totalPlayers < 2) {
-        const aiNeeded = 2 - totalPlayers;
-        if (aiNeeded > 0) {
-          addAIPlayers(gameId, aiNeeded);
-          
-          // Get the updated player list
-          const updatedPlayerList = activeGames[gameId].players;
-          
-          // Broadcast updated player list to all clients in the game
-          io.to(gameId).emit('player_list_update', {
-            players: updatedPlayerList 
-          });
-        }
-      }
-    }
   });
-  
+
   return httpServer;
 }
 

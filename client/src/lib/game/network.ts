@@ -312,6 +312,21 @@ export class NetworkManager {
     };
   }
 
+  // Register callback for attack sent events
+  public onAttackSent(callback: (data: { attackerId: string; attackerName: string; targetId: string; targetName: string; attackType: AttackType }) => void): () => void {
+    if (!this.socket) return () => {};
+    
+    const handler = (data: { attackerId: string; attackerName: string; targetId: string; targetName: string; attackType: AttackType }) => {
+      console.log('Attack sent event:', data);
+      callback(data);
+    };
+    
+    this.socket.on('attack_sent', handler);
+    return () => {
+      this.socket?.off('attack_sent', handler);
+    };
+  }
+
   public onGameStarted(callback: (data: { gameId: string; players: Record<string, Player>; startTime: number }) => void): () => void {
     if (!this.socket) return () => {};
     this.socket.on('game_started', callback);
