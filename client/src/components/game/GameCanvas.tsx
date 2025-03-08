@@ -231,7 +231,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ onJoinMultiplayer }) => {
         </div>
       </div>
       
-      {/* Attack notifications - Adjusted position */}
+      {/* Attack notifications - Keep original position */}
       {isMultiplayer && isRunning && !isPaused && !gameState.isGameOver && (
         <div className="absolute top-[180px] right-3">
           <AttackNotification />
@@ -239,10 +239,23 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ onJoinMultiplayer }) => {
         </div>
       )}
       
-      {/* Multiplayer Player List - Adjusted position */}
+      {/* Multiplayer Player List - Right side panel with scroll, adjusted position */}
       {isMultiplayer && (
-        <div className="absolute top-[180px] left-3 flex flex-col items-start">
-          <PlayerList />
+        <div className="fixed right-0 top-[140px] h-[calc(100%-180px)] flex items-start">
+          <div className="bg-game-dark bg-opacity-90 max-h-full w-[180px] rounded-l-lg overflow-hidden flex flex-col shadow-xl">
+            {/* Header */}
+            <div className="bg-game-blue p-2 text-center">
+              <h3 className="text-white font-pixel text-sm">PLAYERS</h3>
+              <div className="text-game-yellow text-xs mt-1">
+                {Object.keys(players).length} Online
+              </div>
+            </div>
+            
+            {/* Scrollable player list */}
+            <div className="flex-1 overflow-y-auto custom-scrollbar p-2">
+              <PlayerList />
+            </div>
+          </div>
         </div>
       )}
       
@@ -255,6 +268,22 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ onJoinMultiplayer }) => {
           Multiplayer
         </button>
       )}
+      
+      <style jsx>{`
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: rgba(0, 0, 0, 0.2);
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: rgba(255, 255, 255, 0.3);
+          border-radius: 3px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: rgba(255, 255, 255, 0.4);
+        }
+      `}</style>
       
       <MobileControls onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd} />
     </div>
