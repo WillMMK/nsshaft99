@@ -16,6 +16,7 @@ const LastAttackSentNotification: React.FC = () => {
 
   useEffect(() => {
     if (gameState.lastAttackSent) {
+      console.log('Last attack sent notification received:', gameState.lastAttackSent);
       setVisible(true);
       const timer = setTimeout(() => {
         setVisible(false);
@@ -29,10 +30,13 @@ const LastAttackSentNotification: React.FC = () => {
   }
 
   return (
-    <div className="fixed top-20 right-4 z-50 pointer-events-none">
-      <div className="bg-game-dark bg-opacity-90 p-2 rounded text-xs text-white animate-fade-out">
-        <div className="font-bold text-game-yellow">Attack Sent!</div>
-        <div>Target: {gameState.lastAttackSent.targetName}</div>
+    <div className="fixed top-20 right-4 z-50">
+      <div className="bg-game-blue text-white p-3 rounded shadow-lg animate-bounce-small border-2 border-white">
+        <div className="font-bold text-lg mb-1">Attack Sent!</div>
+        <div className="text-sm">
+          Type: {gameState.lastAttackSent.type}<br/>
+          Target: {gameState.lastAttackSent.targetName}
+        </div>
       </div>
     </div>
   );
@@ -54,7 +58,9 @@ const AttackNotification: React.FC = () => {
         setBlinkState(prev => !prev);
       }, 300); // Fast blink rate for urgent feel
       
-      return () => clearInterval(blinkInterval);
+      return () => {
+        clearInterval(blinkInterval);
+      };
     }
   }, [gameState.attackNotification]);
   
@@ -184,9 +190,11 @@ const AttackNotification: React.FC = () => {
   
   // Reset state when attack notification changes
   useEffect(() => {
-    setDefended(false);
-    setDefenseSuccessful(false);
-    setDefenseAttempted(false);
+    if (gameState.attackNotification) {
+      setDefended(false);
+      setDefenseSuccessful(false);
+      setDefenseAttempted(false);
+    }
   }, [gameState.attackNotification]);
   
   if (!gameState.attackNotification) {

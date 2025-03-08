@@ -54,7 +54,17 @@ export class EffectManager {
     // Get the network manager from window
     const networkManager = (window as any).networkManager;
     if (networkManager) {
-      console.log("Sending attack through network manager");
+      console.log("Sending attack through network manager", {
+        targetId: randomTarget,
+        attackType: attackType,
+        targetName: targetName
+      });
+      
+      if (!networkManager.socket?.connected) {
+        console.error("Network manager socket not connected!");
+        return;
+      }
+      
       networkManager.sendAttack(randomTarget, attackType);
       
       // Update game state to show attack was sent

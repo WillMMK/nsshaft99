@@ -201,7 +201,8 @@ export class NetworkManager {
     // If no attack type is specified, use a random one
     const actualAttackType = attackType || Object.values(AttackType)[Math.floor(Math.random() * Object.values(AttackType).length)];
     
-    this.socket.emit('sendAttack', { 
+    console.log('Sending attack:', { targetPlayerId: targetId, attackType: actualAttackType });
+    this.socket.emit('send_attack', { 
       targetPlayerId: targetId, // If undefined, server will pick a random target
       attackType: actualAttackType 
     });

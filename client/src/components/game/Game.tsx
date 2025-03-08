@@ -63,11 +63,14 @@ const GameWithMultiplayer: React.FC = () => {
 
   // Handle multiplayer attacks
   useEffect(() => {
-    if (!isMultiplayer) return;
+    // Don't register handler if:
+    // - Not in multiplayer mode
+    // - Game is not running
+    // - Game is over
+    // - In lobby
+    if (!isMultiplayer || !gameState.isRunning || showGameOver || showLobby) return;
 
     const handleAttack = (data: { attackerId: string; attackerName: string; attackType: AttackType }) => {
-      console.log('Received attack:', data);
-      
       // Update game state with attack notification
       setGameState(prev => ({
         ...prev,
@@ -107,7 +110,7 @@ const GameWithMultiplayer: React.FC = () => {
     return () => {
       unsubscribe();
     };
-  }, [isMultiplayer, onReceiveAttack, setGameState]);
+  }, [isMultiplayer, gameState.isRunning, showGameOver, showLobby, onReceiveAttack, setGameState]);
   
   // Handle game started event
   useEffect(() => {
@@ -155,9 +158,18 @@ const GameWithMultiplayer: React.FC = () => {
         name: data.winnerName
       });
       
+      // Clear any active effects and notifications when game is over
       setGameState(prev => ({
         ...prev,
-        isRunning: false
+        isRunning: false,
+        attackNotification: null,
+        activeEffects: {
+          spikePlatforms: false,
+          speedUp: false,
+          narrowPlatforms: false,
+          reverseControls: false,
+          trueReverse: false
+        }
       }));
       
       setShowGameOver(true);

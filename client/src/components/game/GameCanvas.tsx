@@ -213,6 +213,9 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ onJoinMultiplayer }) => {
         className="absolute top-0 left-0 w-full h-full"
       />
       
+      {/* Attack notification - only show when game is running */}
+      {isMultiplayer && isRunning && !isPaused && <AttackNotification />}
+      
       <div className="absolute top-0 left-0 w-full p-2 mt-12">
         <HealthBar health={health} />
         <div id="score-value" className="text-white font-mono text-sm mt-1">
@@ -223,7 +226,6 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ onJoinMultiplayer }) => {
       {isMultiplayer && (
         <div className="absolute top-24 right-2 flex flex-col items-end">
           <PlayerList />
-          <AttackNotification />
           <AttackButton score={score} />
         </div>
       )}

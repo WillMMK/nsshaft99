@@ -544,7 +544,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
     
     // Handle sending attacks to other players
-    socket.on("sendAttack", (data: { gameId?: string; attackType: AttackType; targetPlayerId?: string }) => {
+    socket.on('send_attack', (data: { attackType: AttackType; targetPlayerId?: string }) => {
       try {
         console.log(`Player ${socket.id} sending attack:`, data);
         
@@ -599,14 +599,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
         
         // Notify the target player
-        io.to(targetPlayerId).emit("receive_attack", {
+        io.to(targetPlayerId).emit('receive_attack', {
           attackerId: socket.id,
           attackerName: attacker.name,
           attackType: data.attackType
         });
         
         // Also notify all players for UI updates
-        io.to(gameId).emit("attack_sent", {
+        io.to(gameId).emit('attack_sent', {
           attackerId: socket.id,
           attackerName: attacker.name,
           targetId: targetPlayerId,
@@ -614,7 +614,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           attackType: data.attackType
         });
       } catch (error) {
-        console.error('Error in sendAttack handler:', error);
+        console.error('Error in send_attack handler:', error);
       }
     });
     
