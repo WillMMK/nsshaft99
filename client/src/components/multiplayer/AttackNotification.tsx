@@ -15,8 +15,22 @@ export const LastAttackSentNotification: React.FC = () => {
   const [visible, setVisible] = useState(false);
   const [blinkState, setBlinkState] = useState(false);
 
+  // Reset state when game is over
   useEffect(() => {
-    if (gameState.lastAttackSent && !gameState.isGameOver) {
+    if (gameState.isGameOver) {
+      setVisible(false);
+      setBlinkState(false);
+    }
+  }, [gameState.isGameOver]);
+
+  useEffect(() => {
+    // First check game over state
+    if (gameState.isGameOver) {
+      setVisible(false);
+      return;
+    }
+
+    if (gameState.lastAttackSent) {
       console.log('Last attack sent notification received:', gameState.lastAttackSent);
       setVisible(true);
       const timer = setTimeout(() => {
@@ -30,7 +44,12 @@ export const LastAttackSentNotification: React.FC = () => {
 
   // Add blinking effect to match received notification
   useEffect(() => {
-    if (visible && !gameState.isGameOver) {
+    // First check game over state
+    if (gameState.isGameOver) {
+      return;
+    }
+
+    if (visible) {
       const blinkInterval = setInterval(() => {
         setBlinkState(prev => !prev);
       }, 300);
@@ -201,7 +220,12 @@ const AttackNotification: React.FC = () => {
   
   // Play attack sound when notification appears
   useEffect(() => {
-    if (gameState.attackNotification && !defended && !gameState.isGameOver) {
+    // First check game over state before doing anything
+    if (gameState.isGameOver) {
+      return;
+    }
+
+    if (gameState.attackNotification && !defended) {
       // Play attack sound
       playAttackSound(gameState.attackNotification.attackType);
       
@@ -210,11 +234,28 @@ const AttackNotification: React.FC = () => {
         navigator.vibrate([100, 50, 100]); // Pattern: vibrate, pause, vibrate
       }
     }
+
+    // Cleanup function to handle unmounting or game over
+    return () => {
+      if (gameState.isGameOver) {
+        // Clear any pending effects
+        setDefended(true);
+        setDefenseSuccessful(false);
+        setDefenseAttempted(true);
+        setTimeLeft(0);
+        clearAttackEffects();
+      }
+    };
   }, [gameState.attackNotification, defended, gameState.isGameOver]);
   
   // Automatic defense system based on player movement
   useEffect(() => {
-    if (gameState.attackNotification && !defended && !defenseAttempted && !gameState.isGameOver) {
+    // First check game over state
+    if (gameState.isGameOver) {
+      return;
+    }
+
+    if (gameState.attackNotification && !defended && !defenseAttempted) {
       // Initialize defense
       setDefenseChance(100);
       setDefenseAttempted(false);
@@ -261,7 +302,8 @@ const AttackNotification: React.FC = () => {
   
   // Attempt defense based on player's movement and current defense chance
   const attemptDefense = () => {
-    if (defended || defenseAttempted) return;
+    // First check game over state
+    if (gameState.isGameOver || defended || defenseAttempted) return;
     
     setDefenseAttempted(true);
     
@@ -273,25 +315,23 @@ const AttackNotification: React.FC = () => {
     const isSuccessful = Math.random() * 100 <= finalDefenseChance;
     setDefenseSuccessful(isSuccessful);
     
-    // Play defense sound with success state
-    playAttackSound('', true, isSuccessful);
+    // Only play sounds if not in game over
+    if (!gameState.isGameOver) {
+      // Play defense sound with success state
+      playAttackSound('', true, isSuccessful);
+      
+      // Vibrate success pattern
+      if (navigator.vibrate) {
+        navigator.vibrate(isSuccessful ? [50, 30, 50, 30, 50] : [200, 100, 200]);
+      }
+    }
     
     if (isSuccessful) {
       // Clear the attack effect
       clearAttackEffects();
-      
-      // Vibrate success pattern
-      if (navigator.vibrate) {
-        navigator.vibrate([50, 30, 50, 30, 50]); // Success pattern
-      }
     } else {
       // Defense failed - show feedback
       setDefended(true);
-      
-      // Vibrate failure pattern
-      if (navigator.vibrate) {
-        navigator.vibrate([200, 100, 200]); // Stronger vibration for failure
-      }
       
       setTimeout(() => {
         setGameState(prev => ({
