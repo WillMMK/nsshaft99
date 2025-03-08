@@ -793,31 +793,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     // Handle player list request
     socket.on("request_player_list", () => {
       try {
-        console.log(`Player ${socket.id} requested player list`);
-        
-        // Find the game the player is in
         const playerGame = findGameByPlayerId(socket.id);
-        if (!playerGame) {
-          console.log(`No game found for player ${socket.id}`);
-          return;
-        }
-        
-        // Debug info about the players
-        const players = playerGame.players;
-        const aiPlayers = Object.values(players).filter(p => p.isAI === true);
-        const humanPlayers = Object.values(players).filter(p => p.isAI !== true);
-        
-        console.log(`Game ${playerGame.id} player info:
-          - Total players: ${Object.keys(players).length}
-          - Human players: ${humanPlayers.length}
-          - AI players: ${aiPlayers.length}
-          - Player IDs: ${Object.keys(players).join(', ')}
-        `);
+        if (!playerGame) return;
         
         // Ensure AI players have isAI flag explicitly set
         Object.values(playerGame.players).forEach(player => {
           if (player.id.startsWith('ai-') && player.isAI === undefined) {
-            console.log(`Fixing AI flag for player ${player.id}`);
             player.isAI = true;
           }
         });
@@ -830,6 +811,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.error('Error handling player list request:', error);
       }
     });
+
+    // Handle countdown updates
+    if (gameCountdowns[gameId].secondsLeft === 30) {
+      // If we have only 1 player, add an AI player
+      if (totalPlayers < 2) {
+        const aiNeeded = 2 - totalPlayers;
+        if (aiNeeded > 0) {
+          addAIPlayers(gameId, aiNeeded);
+          
+          // Get the updated player list
+          const updatedPlayerList = activeGames[gameId].players;
+          
+          // Broadcast updated player list to all clients in the game
+          io.to(gameId).emit('player_list_update', {
+            players: updatedPlayerList 
+          });
+        }
+      }
+    }
   });
   
   return httpServer;

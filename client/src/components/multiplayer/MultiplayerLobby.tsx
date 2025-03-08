@@ -65,31 +65,38 @@ const MultiplayerLobby: React.FC<MultiplayerLobbyProps> = ({ onJoin, onCancel })
   
   // Manual polling for player list updates when we're waiting for players
   useEffect(() => {
+    // Clear any existing interval
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+      pollingIntervalRef.current = null;
+    }
+
     if (waitingForPlayers && !isGameActive) {
-      console.log('Lobby: Manually requesting initial player list');
+      // Initial request
       requestPlayerList();
       
       // Set up interval for additional updates
-      const interval = setInterval(() => {
+      pollingIntervalRef.current = setInterval(() => {
         if (waitingForPlayers && !isGameActive) {
-          console.log('Lobby: Manual polling for player list update');
           requestPlayerList();
+        } else {
+          // Clear interval if conditions are no longer met
+          if (pollingIntervalRef.current) {
+            clearInterval(pollingIntervalRef.current);
+            pollingIntervalRef.current = null;
+          }
         }
-      }, 5000); // Every 5 seconds
-      
-      return () => clearInterval(interval);
+      }, 10000); // Every 10 seconds
     }
-  }, [waitingForPlayers, isGameActive, requestPlayerList]);
-  
-  // Log players whenever they change
-  useEffect(() => {
-    if (Object.keys(players).length > 0) {
-      console.log('Lobby: Players updated:', players);
-      console.log('Lobby: Human players:', humanCount);
-      console.log('Lobby: AI players:', aiCount);
-      console.log('Lobby: AI players:', aiPlayersList);
-    }
-  }, [players, humanCount, aiCount, aiPlayersList]);
+    
+    // Cleanup function
+    return () => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = null;
+      }
+    };
+  }, [waitingForPlayers, isGameActive]);
   
   // Reset state when component mounts
   useEffect(() => {
@@ -132,16 +139,12 @@ const MultiplayerLobby: React.FC<MultiplayerLobbyProps> = ({ onJoin, onCancel })
     setJoinError(null);
     
     try {
-      // Join the global game queue
       await joinGame(playerName, DEFAULT_GAME_ID);
       setWaitingForPlayers(true);
       setIsJoining(false);
       
-      // Request player list after joining
-      setTimeout(() => {
-        console.log('Requesting player list after joining');
-        requestPlayerList();
-      }, 500);
+      // Single request after joining, no need for immediate polling
+      requestPlayerList();
     } catch (error) {
       console.error('Error joining game:', error);
       setJoinError('Failed to join game. Please try again.');

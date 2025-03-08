@@ -51,11 +51,9 @@ export const MultiplayerProvider: React.FC<{ children: ReactNode }> = ({ childre
   useEffect(() => {
     const initializeNetwork = async () => {
       try {
-        console.log('Initializing network connection for multiplayer...');
         await networkManager.initialize();
         setIsConnected(true);
         setPlayerId(networkManager.getSocketId());
-        console.log('Network connection established successfully');
         
         // Make networkManager globally available for debugging and polling
         if (typeof window !== 'undefined') {
@@ -64,16 +62,10 @@ export const MultiplayerProvider: React.FC<{ children: ReactNode }> = ({ childre
         
         // Set up event listeners
         networkManager.onPlayerJoined((data) => {
-          console.log('Player joined:', data);
-          console.log('New player isAI:', data.player?.isAI);
-          console.log('AI players count:', Object.values(data.players).filter(p => p.isAI === true).length);
-          console.log('Human players count:', Object.values(data.players).filter(p => p.isAI !== true).length);
-          console.log('All players:', data.players);
           setPlayers(data.players);
         });
         
         networkManager.onPlayerLeft((data) => {
-          console.log('Player left:', data);
           setPlayers(data.players);
         });
         
@@ -82,7 +74,6 @@ export const MultiplayerProvider: React.FC<{ children: ReactNode }> = ({ childre
         });
         
         networkManager.onGameStarted((data) => {
-          console.log('Game started:', data);
           setIsGameActive(true);
           setGameStartTime(data.startTime);
           setPlayers(data.players);
@@ -90,37 +81,30 @@ export const MultiplayerProvider: React.FC<{ children: ReactNode }> = ({ childre
         });
         
         networkManager.onGameOver((data) => {
-          console.log('Game over:', data);
           setIsGameActive(false);
         });
         
         networkManager.onGameReset((data) => {
-          console.log('Game reset:', data);
           setPlayers(data.players);
           setIsGameActive(false);
           setGameStartTime(null);
         });
         
         networkManager.onCountdownUpdate((data) => {
-          console.log('Countdown update:', data);
           setCountdownSeconds(data.secondsLeft);
           
           // When countdown is at 30s, AI players might be added - request fresh player list
           if (data.secondsLeft === 30 || data.secondsLeft === 29) {
-            console.log('Requesting fresh player list at countdown 30s');
             networkManager.requestPlayerList();
           }
         });
         
         networkManager.onPlayerListUpdate((players) => {
-          console.log('Received updated player list:', players);
           setPlayers(players);
         });
         
         // Add handler for individual player updates
         networkManager.onPlayerUpdated((data) => {
-          console.log('Received individual player update:', data.playerId);
-          
           // Update only the specific player in the players state
           setPlayers(prevPlayers => ({
             ...prevPlayers,
@@ -129,7 +113,6 @@ export const MultiplayerProvider: React.FC<{ children: ReactNode }> = ({ childre
         });
         
         networkManager.onDisconnect(() => {
-          console.log('Disconnected from server');
           setIsConnected(false);
           setIsGameActive(false);
           setGameId(null);
@@ -144,7 +127,6 @@ export const MultiplayerProvider: React.FC<{ children: ReactNode }> = ({ childre
         // Retry connection after a delay
         setTimeout(() => {
           if (isMultiplayer) {
-            console.log('Retrying network connection...');
             initializeNetwork();
           }
         }, 3000);
@@ -185,11 +167,9 @@ export const MultiplayerProvider: React.FC<{ children: ReactNode }> = ({ childre
   const joinGame = async (name: string, customGameId: string = DEFAULT_GAME_ID) => {
     if (!isConnected) {
       try {
-        console.log('Not connected, initializing network...');
         await networkManager.initialize();
         setIsConnected(true);
         setPlayerId(networkManager.getSocketId());
-        console.log('Network initialized successfully, socket ID:', networkManager.getSocketId());
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
         console.error('Failed to connect:', errorMessage);
@@ -202,51 +182,37 @@ export const MultiplayerProvider: React.FC<{ children: ReactNode }> = ({ childre
     
     while (retryCount <= maxRetries) {
       try {
-        console.log(`Attempt ${retryCount + 1}/${maxRetries + 1} to join game with name:`, name, 'and gameId:', customGameId);
         const response = await networkManager.joinGame(name, customGameId);
         if (response.success) {
-          console.log('Successfully joined game:', response);
           setPlayerName(name);
           setGameId(response.gameId);
           setPlayers(response.players || {});
           return;
         } else {
-          console.error('Failed to join game with response:', response);
-          
-          // If we've reached max retries, throw the error
           if (retryCount === maxRetries) {
             throw new Error(response.error || 'Failed to join game after multiple attempts');
           }
-          
-          // Otherwise, wait and retry
           await new Promise(resolve => setTimeout(resolve, 1000));
           retryCount++;
         }
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-        console.error(`Attempt ${retryCount + 1}/${maxRetries + 1} failed to join game:`, errorMessage);
         
-        // If we've reached max retries, throw the error
         if (retryCount === maxRetries) {
           throw error;
         }
         
-        // If we failed to join, try to reconnect
         if (isConnected && networkManager.getSocketId() === null) {
-          console.log('Socket ID is null despite being connected, attempting to reconnect...');
           setIsConnected(false);
-          
           try {
             await networkManager.initialize();
             setIsConnected(true);
             setPlayerId(networkManager.getSocketId());
-            console.log('Reconnected successfully, socket ID:', networkManager.getSocketId());
           } catch (reconnectError) {
             console.error('Failed to reconnect:', reconnectError);
           }
         }
         
-        // Wait and retry
         await new Promise(resolve => setTimeout(resolve, 1000));
         retryCount++;
       }
@@ -318,35 +284,14 @@ export const MultiplayerProvider: React.FC<{ children: ReactNode }> = ({ childre
 
   // Add requestPlayerList function to context
   const requestPlayerList = () => {
-    console.log('Context: Requesting player list update');
     if (networkManager) {
       try {
         networkManager.requestPlayerList();
       } catch (error) {
         console.error('Error requesting player list:', error);
       }
-    } else {
-      console.warn('NetworkManager not initialized');
     }
   };
-
-  // Add a timer to periodically request the player list
-  useEffect(() => {
-    if (isMultiplayer && !isGameActive && Object.keys(players).length > 0) {
-      console.log('Setting up automatic player list polling');
-      
-      // Request immediately
-      requestPlayerList();
-      
-      // Then set up interval
-      const interval = setInterval(() => {
-        console.log('Auto-polling for player list update');
-        requestPlayerList();
-      }, 3000);
-      
-      return () => clearInterval(interval);
-    }
-  }, [isMultiplayer, isGameActive, Object.keys(players).length]);
 
   return (
     <MultiplayerContext.Provider
