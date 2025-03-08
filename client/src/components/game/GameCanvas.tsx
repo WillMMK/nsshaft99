@@ -6,7 +6,6 @@ import { useMultiplayer } from '@/contexts/MultiplayerContext';
 import { useGameState } from '@/contexts/GameStateContext';
 import PlayerList from '@/components/multiplayer/PlayerList';
 import AttackNotification from '@/components/multiplayer/AttackNotification';
-import AttackButton from '@/components/multiplayer/AttackButton';
 
 interface GameCanvasProps {
   onJoinMultiplayer: () => void;
@@ -226,7 +225,6 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ onJoinMultiplayer }) => {
       {isMultiplayer && (
         <div className="absolute top-24 right-2 flex flex-col items-end">
           <PlayerList />
-          <AttackButton score={score} />
         </div>
       )}
       
