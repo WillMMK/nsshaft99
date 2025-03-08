@@ -212,31 +212,45 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ onJoinMultiplayer }) => {
         className="absolute top-0 left-0 w-full h-full"
       />
       
-      {/* Attack notifications - only show when game is running and not in game over */}
-      {isMultiplayer && isRunning && !isPaused && !gameState.isGameOver && (
-        <>
-          <AttackNotification />
-          <LastAttackSentNotification />
-        </>
-      )}
-      
-      <div className="absolute top-0 left-0 w-full p-2 mt-12">
-        <HealthBar health={health} />
-        <div id="score-value" className="text-white font-mono text-sm mt-1">
-          {score}
+      {/* Game UI Panel - No background, with text shadow for readability */}
+      <div className="absolute top-[120px] left-0 w-full px-3">
+        {/* Main Game Stats Panel */}
+        <div className="flex items-center justify-between drop-shadow-[0_2px_2px_rgba(0,0,0,0.5)]">
+          {/* HP Bar Section */}
+          <div className="flex-1 scale-90 origin-left">
+            <HealthBar health={health} />
+          </div>
+          
+          {/* Score Section - Enhanced contrast */}
+          <div className="ml-2 flex flex-col items-end">
+            <div className="text-game-yellow font-pixel text-[10px] drop-shadow-[0_1px_1px_rgba(0,0,0,0.8)]">SCORE</div>
+            <div id="score-value" className="text-white font-mono text-base font-bold leading-none mt-0.5 drop-shadow-[0_2px_2px_rgba(0,0,0,0.8)]">
+              {score}
+            </div>
+          </div>
         </div>
       </div>
       
+      {/* Attack notifications - Adjusted position */}
+      {isMultiplayer && isRunning && !isPaused && !gameState.isGameOver && (
+        <div className="absolute top-[180px] right-3">
+          <AttackNotification />
+          <LastAttackSentNotification />
+        </div>
+      )}
+      
+      {/* Multiplayer Player List - Adjusted position */}
       {isMultiplayer && (
-        <div className="absolute top-24 right-2 flex flex-col items-end">
+        <div className="absolute top-[180px] left-3 flex flex-col items-start">
           <PlayerList />
         </div>
       )}
       
+      {/* Multiplayer Join Button */}
       {!isMultiplayer && !isRunning && (
         <button 
           onClick={onJoinMultiplayer}
-          className="absolute bottom-20 right-2 bg-game-blue text-white px-2 py-1 rounded text-xs"
+          className="absolute bottom-24 right-4 bg-game-blue hover:bg-game-blue-dark text-white px-4 py-2 rounded-lg text-sm font-pixel transition-colors"
         >
           Multiplayer
         </button>
