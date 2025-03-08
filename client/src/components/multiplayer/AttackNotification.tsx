@@ -174,7 +174,7 @@ export const LastAttackSentNotification: React.FC = () => {
           transform
           transition-all
           pixel-corners
-          animate-bounce-small
+          ${!gameState.isGameOver ? 'animate-bounce-small' : ''}
         `}
         style={{ 
           transition: 'transform 0.5s, opacity 0.5s',
@@ -220,73 +220,98 @@ const AttackNotification: React.FC = () => {
   
   // Play attack sound when notification appears
   useEffect(() => {
-    // First check game over state before doing anything
-    if (gameState.isGameOver) {
+    // Immediately return if game is over or no notification
+    if (gameState.isGameOver || !gameState.attackNotification) {
+      // Stop any playing sounds immediately when game is over
+      const audioElements = document.querySelectorAll('audio');
+      audioElements.forEach(audio => {
+        audio.pause();
+        audio.currentTime = 0;
+      });
       return;
     }
 
-    if (gameState.attackNotification && !defended) {
-      // Play attack sound
-      playAttackSound(gameState.attackNotification.attackType);
-      
-      // Vibrate device if supported
-      if (navigator.vibrate) {
-        navigator.vibrate([100, 50, 100]); // Pattern: vibrate, pause, vibrate
-      }
-    }
+    // Only proceed if we're in an active game state
+    if (!defended && !gameState.isGameOver) {
+      // Create a flag to track if we should still play the sound
+      let shouldPlay = true;
 
-    // Cleanup function to handle unmounting or game over
-    return () => {
-      if (gameState.isGameOver) {
-        // Clear any pending effects
-        setDefended(true);
-        setDefenseSuccessful(false);
-        setDefenseAttempted(true);
-        setTimeLeft(0);
-        clearAttackEffects();
+      // Cleanup function that runs before the next effect or unmount
+      const cleanup = () => {
+        shouldPlay = false;
+        // Stop all audio elements
+        const audioElements = document.querySelectorAll('audio');
+        audioElements.forEach(audio => {
+          audio.pause();
+          audio.currentTime = 0;
+        });
+      };
+
+      // Only play sound if we should
+      if (shouldPlay) {
+        playAttackSound(gameState.attackNotification.attackType);
+        
+        if (navigator.vibrate) {
+          navigator.vibrate([100, 50, 100]);
+        }
       }
-    };
+
+      return cleanup;
+    }
   }, [gameState.attackNotification, defended, gameState.isGameOver]);
   
   // Automatic defense system based on player movement
   useEffect(() => {
-    // First check game over state
-    if (gameState.isGameOver) {
+    // Immediately return if game is over or no notification
+    if (gameState.isGameOver || !gameState.attackNotification) {
       return;
     }
 
-    if (gameState.attackNotification && !defended && !defenseAttempted) {
+    if (!defended && !defenseAttempted) {
       // Initialize defense
       setDefenseChance(100);
       setDefenseAttempted(false);
       
-      // Decrease defense chance over time (slower than before)
+      // Create cleanup flag
+      let isActive = true;
+      
+      // Decrease defense chance over time
       const interval = setInterval(() => {
+        if (!isActive || gameState.isGameOver) {
+          clearInterval(interval);
+          return;
+        }
+        
         setDefenseChance(prev => {
-          const newChance = prev - 2; // Decrease by 2% every 200ms (slower reduction)
+          const newChance = prev - 2;
           return newChance < 0 ? 0 : newChance;
         });
       }, 200);
       
-      // Automatic defense will be triggered after 2.5 seconds
+      // Automatic defense timer
       const defenseTimer = setTimeout(() => {
+        if (!isActive || gameState.isGameOver) return;
         attemptDefense();
       }, 2500);
       
-      // Auto-hide after 3 seconds if not defended
+      // Auto-hide timer
       const hideTimer = setTimeout(() => {
+        if (!isActive || gameState.isGameOver) return;
+        
         if (!defended) {
           setDefended(true);
           setDefenseSuccessful(false);
           
-          // Ensure attack effects are cleared after their duration
           setTimeout(() => {
+            if (!isActive || gameState.isGameOver) return;
             clearAttackEffects();
           }, 3000);
         }
       }, 3000);
       
+      // Cleanup function
       return () => {
+        isActive = false;
         clearInterval(interval);
         clearTimeout(defenseTimer);
         clearTimeout(hideTimer);
@@ -374,37 +399,50 @@ const AttackNotification: React.FC = () => {
   
   // Update duration timer
   useEffect(() => {
-    if (gameState.attackNotification && !defended) {
-      // Start at 3 seconds (3000ms)
-      setTimeLeft(3000);
-      
-      // Update every 100ms for smooth countdown
-      const interval = setInterval(() => {
-        setTimeLeft(prev => {
-          const newTime = prev - 100;
-          return newTime < 0 ? 0 : newTime;
-        });
-      }, 100);
-
-      // Auto-hide after 3 seconds if not defended
-      const hideTimer = setTimeout(() => {
-        if (!defended) {
-          setDefended(true);
-          setDefenseSuccessful(false);
-          
-          // Ensure attack effects are cleared after their duration
-          setTimeout(() => {
-            clearAttackEffects();
-          }, 3000);
-        }
-      }, 3000);
-      
-      return () => {
-        clearInterval(interval);
-        clearTimeout(hideTimer);
-      };
+    // Immediately return if game is over or no notification
+    if (gameState.isGameOver || !gameState.attackNotification || defended) {
+      return;
     }
-  }, [gameState.attackNotification, defended]);
+
+    let isActive = true;
+    
+    // Start at 3 seconds
+    setTimeLeft(3000);
+    
+    // Update timer
+    const interval = setInterval(() => {
+      if (!isActive || gameState.isGameOver) {
+        clearInterval(interval);
+        return;
+      }
+      
+      setTimeLeft(prev => {
+        const newTime = prev - 100;
+        return newTime < 0 ? 0 : newTime;
+      });
+    }, 100);
+
+    // Auto-hide timer
+    const hideTimer = setTimeout(() => {
+      if (!isActive || gameState.isGameOver) return;
+      
+      if (!defended) {
+        setDefended(true);
+        setDefenseSuccessful(false);
+        
+        setTimeout(() => {
+          if (!isActive || gameState.isGameOver) return;
+          clearAttackEffects();
+        }, 3000);
+      }
+    }, 3000);
+    
+    return () => {
+      isActive = false;
+      clearInterval(interval);
+      clearTimeout(hideTimer);
+    };
+  }, [gameState.attackNotification, defended, gameState.isGameOver]);
   
   if (!gameState.attackNotification || gameState.isGameOver) {
     return null;
@@ -529,7 +567,13 @@ const AttackNotification: React.FC = () => {
           transform
           transition-all
           pixel-corners
-          ${defended ? (defenseSuccessful ? 'scale-150 opacity-0' : 'shake-animation') : 'animate-bounce-small'}
+          ${!gameState.isGameOver ? 
+            (defended ? 
+              (defenseSuccessful ? 'scale-150 opacity-0' : 'shake-animation') 
+              : 'animate-bounce-small'
+            ) 
+            : ''
+          }
         `}
         style={{ 
           transition: 'transform 0.5s, opacity 0.5s',
