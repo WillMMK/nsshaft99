@@ -20,7 +20,6 @@ interface MultiplayerContextType {
   updateScore: (score: number) => void;
   sendAttack: (attackType: AttackType, targetId?: string) => void;
   reportDeath: () => void;
-  requestPlayerList: () => void;
   onReceiveAttack: (callback: (data: { attackerId: string; attackerName: string; attackType: AttackType }) => void) => () => void;
   onGameStarted: (callback: (data: { gameId: string; players: Record<string, Player>; startTime: number }) => void) => () => void;
   onGameOver: (callback: (data: { winnerId: string; winnerName: string; players: Record<string, Player> }) => void) => () => void;
@@ -77,7 +76,7 @@ export const MultiplayerProvider: React.FC<{ children: ReactNode }> = ({ childre
           setIsGameActive(true);
           setGameStartTime(data.startTime);
           setPlayers(data.players);
-          setCountdownSeconds(null); // Clear countdown when game starts
+          setCountdownSeconds(null);
         });
         
         networkManager.onGameOver((data) => {
@@ -92,20 +91,13 @@ export const MultiplayerProvider: React.FC<{ children: ReactNode }> = ({ childre
         
         networkManager.onCountdownUpdate((data) => {
           setCountdownSeconds(data.secondsLeft);
-          
-          // When countdown is at 30s, AI players might be added - request fresh player list
-          if (data.secondsLeft === 30 || data.secondsLeft === 29) {
-            networkManager.requestPlayerList();
-          }
         });
         
         networkManager.onPlayerListUpdate((players) => {
           setPlayers(players);
         });
         
-        // Add handler for individual player updates
         networkManager.onPlayerUpdated((data) => {
-          // Update only the specific player in the players state
           setPlayers(prevPlayers => ({
             ...prevPlayers,
             [data.playerId]: data.playerState
@@ -124,7 +116,6 @@ export const MultiplayerProvider: React.FC<{ children: ReactNode }> = ({ childre
         console.error('Failed to initialize network:', errorMessage);
         setIsConnected(false);
         
-        // Retry connection after a delay
         setTimeout(() => {
           if (isMultiplayer) {
             initializeNetwork();
@@ -133,7 +124,6 @@ export const MultiplayerProvider: React.FC<{ children: ReactNode }> = ({ childre
       }
     };
     
-    // Store the function in the ref
     initializeNetworkRef.current = initializeNetwork;
 
     if (isMultiplayer) {
@@ -142,7 +132,6 @@ export const MultiplayerProvider: React.FC<{ children: ReactNode }> = ({ childre
 
     return () => {
       if (isMultiplayer) {
-        console.log('Cleaning up network connection');
         networkManager.disconnect();
         setIsConnected(false);
         setPlayerId(null);
@@ -282,17 +271,6 @@ export const MultiplayerProvider: React.FC<{ children: ReactNode }> = ({ childre
     return networkManager.onGameReset(callback);
   };
 
-  // Add requestPlayerList function to context
-  const requestPlayerList = () => {
-    if (networkManager) {
-      try {
-        networkManager.requestPlayerList();
-      } catch (error) {
-        console.error('Error requesting player list:', error);
-      }
-    }
-  };
-
   return (
     <MultiplayerContext.Provider
       value={{
@@ -312,7 +290,6 @@ export const MultiplayerProvider: React.FC<{ children: ReactNode }> = ({ childre
         updateScore,
         sendAttack,
         reportDeath,
-        requestPlayerList,
         onReceiveAttack,
         onGameStarted,
         onGameOver,

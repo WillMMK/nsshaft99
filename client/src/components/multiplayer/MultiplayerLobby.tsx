@@ -63,40 +63,7 @@ const MultiplayerLobby: React.FC<MultiplayerLobbyProps> = ({ onJoin, onCancel })
   // Get player lists
   const { aiPlayersList, humanPlayersList, aiCount, humanCount, totalCount } = getPlayerLists();
   
-  // Manual polling for player list updates when we're waiting for players
-  useEffect(() => {
-    // Clear any existing interval
-    if (pollingIntervalRef.current) {
-      clearInterval(pollingIntervalRef.current);
-      pollingIntervalRef.current = null;
-    }
-
-    if (waitingForPlayers && !isGameActive) {
-      // Initial request
-      requestPlayerList();
-      
-      // Set up interval for additional updates
-      pollingIntervalRef.current = setInterval(() => {
-        if (waitingForPlayers && !isGameActive) {
-          requestPlayerList();
-        } else {
-          // Clear interval if conditions are no longer met
-          if (pollingIntervalRef.current) {
-            clearInterval(pollingIntervalRef.current);
-            pollingIntervalRef.current = null;
-          }
-        }
-      }, 10000); // Every 10 seconds
-    }
-    
-    // Cleanup function
-    return () => {
-      if (pollingIntervalRef.current) {
-        clearInterval(pollingIntervalRef.current);
-        pollingIntervalRef.current = null;
-      }
-    };
-  }, [waitingForPlayers, isGameActive]);
+  // Remove manual polling effect since we'll rely on server updates
   
   // Reset state when component mounts
   useEffect(() => {
@@ -111,14 +78,6 @@ const MultiplayerLobby: React.FC<MultiplayerLobbyProps> = ({ onJoin, onCancel })
     } else if (localStorage.getItem('playerName')) {
       setPlayerName(localStorage.getItem('playerName') || '');
     }
-    
-    // Clean up polling interval on unmount
-    return () => {
-      if (pollingIntervalRef.current) {
-        clearInterval(pollingIntervalRef.current);
-        pollingIntervalRef.current = null;
-      }
-    };
   }, []);
   
   // Start the game when it becomes active
@@ -142,9 +101,6 @@ const MultiplayerLobby: React.FC<MultiplayerLobbyProps> = ({ onJoin, onCancel })
       await joinGame(playerName, DEFAULT_GAME_ID);
       setWaitingForPlayers(true);
       setIsJoining(false);
-      
-      // Single request after joining, no need for immediate polling
-      requestPlayerList();
     } catch (error) {
       console.error('Error joining game:', error);
       setJoinError('Failed to join game. Please try again.');

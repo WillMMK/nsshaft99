@@ -427,12 +427,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     // Handle player joining a game
     socket.on("join_game", (data, callback) => {
       try {
-        console.log(`Player ${socket.id} attempting to join game:`, data);
         const { name, gameId = 'default-game' } = data;
         
         // Validate input data
         if (!name || typeof name !== 'string') {
-          console.error('Invalid player name:', name);
           return callback({ 
             success: false, 
             error: 'Invalid player name' 
@@ -456,7 +454,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         // Create game if it doesn't exist
         if (!activeGames[gameId]) {
-          console.log(`Creating new game room: ${gameId}`);
           activeGames[gameId] = {
             id: gameId,
             players: {},
@@ -476,7 +473,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         socket.join(gameId);
         
         // Send success response
-        console.log(`Player ${name} (${socket.id}) joined game ${gameId}`);
         callback({ 
           success: true, 
           gameId, 
@@ -484,14 +480,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           countdownSeconds: gameCountdowns[gameId]?.secondsLeft || 60
         });
         
-        // Notify all players in the game
+        // Notify all players in the game about the new player
         io.to(gameId).emit("player_joined", { 
           player, 
           players: activeGames[gameId].players 
         });
       } catch (error) {
         console.error('Error in join_game handler:', error);
-        // Make sure we always send a response even if there's an error
         if (typeof callback === 'function') {
           callback({ 
             success: false, 
@@ -787,28 +782,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       } catch (error) {
         console.error('Error handling player death:', error);
-      }
-    });
-
-    // Handle player list request
-    socket.on("request_player_list", () => {
-      try {
-        const playerGame = findGameByPlayerId(socket.id);
-        if (!playerGame) return;
-        
-        // Ensure AI players have isAI flag explicitly set
-        Object.values(playerGame.players).forEach(player => {
-          if (player.id.startsWith('ai-') && player.isAI === undefined) {
-            player.isAI = true;
-          }
-        });
-        
-        // Send updated player list back to the client
-        socket.emit('player_list_update', {
-          players: playerGame.players
-        });
-      } catch (error) {
-        console.error('Error handling player list request:', error);
       }
     });
 
